@@ -456,6 +456,8 @@ export default function ConfiguratorWizard() {
   const clipInputKeys = useRef<Map<string, string> | null>(null);
   const pollingSessions = useRef(new Map<string, PollSession>());
   const submissionControllers = useRef(new Map<string, AbortController>());
+  const clipUrlUpgradeAttempts = useRef(new Set<string>());
+  const clipUrlUpgradeControllers = useRef(new Map<string, AbortController>());
   const fileUrlsRef = useRef(fileUrls);
   fileUrlsRef.current = fileUrls;
 
@@ -543,9 +545,18 @@ export default function ConfiguratorWizard() {
       const parsed: unknown = saved ? JSON.parse(saved) : {};
       const restored: Record<string, ClipState> = {};
       if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        Object.entries(parsed).forEach(([sectionId, videoUrl]) => {
-          if (typeof videoUrl === "string" && videoUrl) {
-            restored[sectionId] = { status: "done", videoUrl };
+        Object.entries(parsed).forEach(([sectionId, storedClip]) => {
+          if (typeof storedClip === "string" && storedClip) {
+            restored[sectionId] = { status: "done", videoUrl: storedClip };
+          } else if (storedClip && typeof storedClip === "object" && !Array.isArray(storedClip)) {
+            const value = storedClip as { videoUrl?: unknown; requestId?: unknown };
+            if (typeof value.videoUrl === "string" && value.videoUrl) {
+              restored[sectionId] = {
+                status: "done",
+                videoUrl: value.videoUrl,
+                ...(typeof value.requestId === "string" ? { requestId: value.requestId } : {}),
+              };
+            }
           }
         });
       }
@@ -602,12 +613,61 @@ export default function ConfiguratorWizard() {
 
   useEffect(() => {
     if (!clipPersistenceReady) return;
-    const videoUrls: Record<string, string> = {};
+    const storedClips: Record<string, { videoUrl: string; requestId?: string }> = {};
     Object.entries(clips).forEach(([sectionId, clip]) => {
-      if (clip.status === "done" && clip.videoUrl) videoUrls[sectionId] = clip.videoUrl;
+      if (clip.status === "done" && clip.videoUrl) {
+        storedClips[sectionId] = { videoUrl: clip.videoUrl, requestId: clip.requestId };
+      }
     });
-    localStorage.setItem(generatedClipsKey, JSON.stringify(videoUrls));
+    localStorage.setItem(generatedClipsKey, JSON.stringify(storedClips));
   }, [clips, clipPersistenceReady]);
+
+  useEffect(() => {
+    Object.entries(clips).forEach(([sectionId, clip]) => {
+      const requestId = clip.requestId;
+      const oldVideoUrl = clip.videoUrl;
+      if (
+        clip.status !== "done" ||
+        !requestId ||
+        !oldVideoUrl ||
+        oldVideoUrl.startsWith("/api/video-clips/") ||
+        clipUrlUpgradeAttempts.current.has(requestId)
+      ) {
+        return;
+      }
+
+      clipUrlUpgradeAttempts.current.add(requestId);
+      const controller = new AbortController();
+      clipUrlUpgradeControllers.current.set(requestId, controller);
+      void fetch(`/api/video-clips/${encodeURIComponent(requestId)}`, {
+        signal: controller.signal,
+      })
+        .then(async (response) => {
+          const payload: unknown = await response.json().catch(() => null);
+          if (!response.ok || !payload || typeof payload !== "object") return;
+          const result = payload as { status?: unknown; videoUrl?: unknown };
+          if (result.status !== "done" || typeof result.videoUrl !== "string") return;
+          setClips((current) => {
+            const existing = current[sectionId];
+            if (
+              existing?.status !== "done" ||
+              existing.requestId !== requestId ||
+              existing.videoUrl !== oldVideoUrl
+            ) {
+              return current;
+            }
+            return {
+              ...current,
+              [sectionId]: { ...existing, videoUrl: result.videoUrl as string },
+            };
+          });
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          clipUrlUpgradeControllers.current.delete(requestId);
+        });
+    });
+  }, [clips]);
 
   useEffect(() => {
     const activeClips = Object.entries(clips).filter(
@@ -720,6 +780,8 @@ export default function ConfiguratorWizard() {
     pollingSessions.current.clear();
     submissionControllers.current.forEach((controller) => controller.abort());
     submissionControllers.current.clear();
+    clipUrlUpgradeControllers.current.forEach((controller) => controller.abort());
+    clipUrlUpgradeControllers.current.clear();
   }, []);
 
   useEffect(() => {

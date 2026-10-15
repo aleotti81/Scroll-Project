@@ -67,6 +67,23 @@ async function fillConfiguratorToSummary(page: Page, siteUrl?: string) {
   await page.getByRole("button", { name: "Avanti" }).click();
 }
 
+async function reloadWithStoredClip(
+  page: Page,
+  storedClip: string | { videoUrl: string; requestId: string },
+) {
+  await fillConfiguratorToSummary(page);
+  await page.waitForFunction(() => Boolean(localStorage.getItem("scroll-studio-configuratore-v1")));
+  const sectionId = await page.evaluate((value) => {
+    const draft = JSON.parse(localStorage.getItem("scroll-studio-configuratore-v1") ?? "null");
+    const section = draft?.sections?.find((item: { type?: string }) => item.type === "B");
+    if (typeof section?.id !== "string") throw new Error("Sezione B non trovata nella bozza.");
+    localStorage.setItem("scroll-studio-clips-v1", JSON.stringify({ [section.id]: value }));
+    return section.id as string;
+  }, storedClip);
+  await page.reload();
+  return sectionId;
+}
+
 async function openSitePreview(page: Page) {
   await page.getByRole("button", { name: "Apri anteprima del sito" }).click();
   const preview = page.getByRole("dialog", { name: "Anteprima del sito" });
@@ -94,6 +111,37 @@ test("ripristina la bozza dopo aver ricaricato la pagina", async ({ page }) => {
   await page.reload();
   await expect(page.getByRole("status")).toContainText("Le foto/video vanno ricaricati");
   await expect(page.getByLabel("Nome della struttura o del progetto")).toHaveValue("La mia casa di prova");
+});
+
+test("ripristina le clip salvate nel formato legacy stringa", async ({ page }) => {
+  const legacyUrl = "https://v3b.fal.media/legacy.mp4";
+  const sectionId = await reloadWithStoredClip(page, legacyUrl);
+
+  await expect.poll(async () => page.evaluate((id) => {
+    const clips = JSON.parse(localStorage.getItem("scroll-studio-clips-v1") ?? "{}");
+    return clips[id];
+  }, sectionId)).toEqual({ videoUrl: legacyUrl });
+});
+
+test("aggiorna alla route locale una clip fal già generata", async ({ page }) => {
+  let statusCalls = 0;
+  const requestId = "req-12345678";
+  const localUrl = `/api/video-clips/${requestId}/file`;
+  await page.route(`**/api/video-clips/${requestId}`, (route) => {
+    statusCalls += 1;
+    return route.fulfill({ json: { status: "done", videoUrl: localUrl } });
+  });
+
+  const sectionId = await reloadWithStoredClip(page, {
+    videoUrl: "https://v3b.fal.media/x.mp4",
+    requestId,
+  });
+
+  await expect.poll(async () => page.evaluate((id) => {
+    const clips = JSON.parse(localStorage.getItem("scroll-studio-clips-v1") ?? "{}");
+    return clips[id];
+  }, sectionId)).toEqual({ videoUrl: localUrl, requestId });
+  expect(statusCalls).toBe(1);
 });
 
 test("mantiene il testo quando si riseleziona la modalità attiva", async ({ page }) => {
