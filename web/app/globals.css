@@ -1996,6 +1996,24 @@ svg {
   margin-top: 14px;
 }
 
+.video-clip-statuses {
+  margin-top: 12px;
+}
+
+.video-clip-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+}
+
+.video-clip-row .button-outline {
+  flex: 0 0 auto;
+}
+
 @media (max-width: 640px) {
   .preview-toolbar > span {
     font-size: 11px;

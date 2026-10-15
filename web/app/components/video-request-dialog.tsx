@@ -9,18 +9,25 @@ export type VideoRequest = { requestedAt: string; sectionIds: string[]; total: n
 
 export default function VideoRequestDialog({
   sections,
+  candidateSectionIds,
+  availableSectionIds,
   onCancel,
   onConfirm,
 }: {
   sections: Section[];
+  candidateSectionIds: string[];
+  availableSectionIds: string[];
   onCancel: () => void;
   onConfirm: (request: VideoRequest) => void;
 }) {
   const cancelButton = useRef<HTMLButtonElement>(null);
+  const candidateIds = new Set(candidateSectionIds);
+  const availableIds = new Set(availableSectionIds);
   const clips = sections
     .map((section, index) => ({ section, index, cost: sectionCost(section) }))
-    .filter((clip) => clip.cost > 0);
-  const total = clips.reduce((sum, clip) => sum + clip.cost, 0);
+    .filter((clip) => clip.cost > 0 && candidateIds.has(clip.section.id));
+  const requestable = clips.filter((clip) => availableIds.has(clip.section.id));
+  const total = requestable.reduce((sum, clip) => sum + clip.cost, 0);
 
   useEffect(() => {
     cancelButton.current?.focus();
@@ -43,19 +50,20 @@ export default function VideoRequestDialog({
           {clips.map(({ section, index, cost }) => (
             <li key={section.id}>
               <span>Sezione {index + 1} · {section.type !== "A" && section.media.source === "photos" ? `${section.media.durationSec} s` : ""}</span>
-              <strong>{formatCost(cost)}</strong>
+              <strong>{availableIds.has(section.id) ? formatCost(cost) : "Ricarica le foto"}</strong>
             </li>
           ))}
         </ul>
         <p className="video-dialog-total"><span>Totale stimato</span><strong>{formatCost(total)}</strong></p>
-        <p className="field-hint">La generazione non è ancora attiva: confermando registri solo la richiesta. Nessun costo viene addebitato.</p>
+        <p className="field-hint">Confermando, la generazione parte subito e verranno addebitati circa {formatCost(total)} sul tuo account fal.ai.</p>
         <div className="action-group">
           <button ref={cancelButton} className="button-outline" type="button" onClick={onCancel}>Annulla</button>
           <button
             className="button button-dark"
             type="button"
-            onClick={() => onConfirm({ requestedAt: new Date().toISOString(), sectionIds: clips.map((clip) => clip.section.id), total })}
-          >Conferma richiesta</button>
+            disabled={requestable.length === 0}
+            onClick={() => onConfirm({ requestedAt: new Date().toISOString(), sectionIds: requestable.map((clip) => clip.section.id), total })}
+          >Conferma e genera · {formatCost(total)}</button>
         </div>
       </div>
     </div>

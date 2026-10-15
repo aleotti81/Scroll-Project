@@ -91,15 +91,21 @@ function ExternalLink({ link }: { link: SiteLink }) {
 export default function SitePreview({
   data,
   fileUrls,
+  clipUrls,
+  pendingSectionIds,
+  pendingVideoCost,
+  allClipsDone,
   onClose,
   onRequestVideos,
-  videoRequested,
 }: {
   data: ConfiguratorData;
   fileUrls: Record<string, string>;
+  clipUrls: Record<string, string>;
+  pendingSectionIds: string[];
+  pendingVideoCost: number;
+  allClipsDone: boolean;
   onClose: () => void;
   onRequestVideos: () => void;
-  videoRequested: boolean;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<(HTMLElement | null)[]>([]);
@@ -190,14 +196,14 @@ export default function SitePreview({
       <link rel="stylesheet" href={googleFontsUrl(pair)} />
       <div className="preview-toolbar">
         <span>
-          Anteprima · {aiCost > 0 ? (videoRequested ? "creazione video AI richiesta" : "i video AI non sono ancora generati") : "nessun video AI da generare"}
+          Anteprima · {aiCost > 0 ? (allClipsDone ? "video AI generati" : "i video AI non sono ancora generati") : "nessun video AI da generare"}
           {importState === "loading" && " · lettura del sito in corso…"}
           {importState === "ok" && imported && ` · header e footer da ${new URL(imported.sourceUrl).hostname}`}
           {importState === "failed" && " · sito non leggibile, header e footer dal form"}
         </span>
         <div className="preview-toolbar-actions">
-          {aiCost > 0 && !videoRequested && (
-            <button type="button" className="preview-create" onClick={onRequestVideos}><Icon name="sparkle" /> Crea i video AI · {formatCost(aiCost)}</button>
+          {pendingSectionIds.length > 0 && (
+            <button type="button" className="preview-create" onClick={onRequestVideos}><Icon name="sparkle" /> Crea i video AI · {formatCost(pendingVideoCost)}</button>
           )}
           <button ref={closeButton} type="button" className="preview-close" onClick={onClose}><Icon name="close" /> Chiudi</button>
         </div>
@@ -257,13 +263,15 @@ export default function SitePreview({
             media = <PreviewVideo url={urlOf(section.media.video)} progress={mediaProgress} />;
           } else {
             const start = section.media.linkPrevious ? frameOf(data.sections[index - 1]) : section.media.startPhoto;
-            media = (
-              <>
-                <PreviewImage url={urlOf(start)} label="Foto iniziale" style={{ transform: `scale(${1 + mediaProgress * 0.12})` }} />
-                <PreviewImage url={urlOf(section.media.endPhoto)} label="Foto finale" style={{ opacity: mediaProgress, transform: `scale(${1.12 - mediaProgress * 0.12})` }} />
-                <span className="preview-ai-note">Simulazione: qui andrà la clip AI</span>
-              </>
-            );
+            media = clipUrls[section.id]
+              ? <PreviewVideo url={clipUrls[section.id]} progress={mediaProgress} />
+              : (
+                <>
+                  <PreviewImage url={urlOf(start)} label="Foto iniziale" style={{ transform: `scale(${1 + mediaProgress * 0.12})` }} />
+                  <PreviewImage url={urlOf(section.media.endPhoto)} label="Foto finale" style={{ opacity: mediaProgress, transform: `scale(${1.12 - mediaProgress * 0.12})` }} />
+                  <span className="preview-ai-note">Simulazione: qui andrà la clip AI</span>
+                </>
+              );
           }
           const textOpacity = isB ? ramp(p, 0.78, 0.92) : ramp(p, 0.08, 0.2) * (1 - ramp(p, 0.85, 0.97));
           return (

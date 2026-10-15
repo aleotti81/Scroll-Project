@@ -196,6 +196,21 @@ test("ripiega sui dati del form se il sito esistente non è leggibile", async ({
 });
 
 test("consente di richiedere la generazione dei video AI dall’anteprima", async ({ page }) => {
+  await page.route("**/api/video-clips", (route) =>
+    route.fulfill({ json: { requestId: "req-12345678" } }),
+  );
+  let statusCalls = 0;
+  await page.route("**/api/video-clips/req-12345678", (route) => {
+    statusCalls += 1;
+    return route.fulfill({
+      json: statusCalls === 1
+        ? { status: "running" }
+        : { status: "done", videoUrl: "/e2e/fixtures/story.mp4" },
+    });
+  });
+  await page.route("**/e2e/fixtures/story.mp4", (route) =>
+    route.fulfill({ path: videoFixture, contentType: "video/mp4" }),
+  );
   await fillConfiguratorToSummary(page);
   const preview = await openSitePreview(page);
   const requestButton = preview.getByRole("button", { name: /Crea i video AI/ });
@@ -206,17 +221,27 @@ test("consente di richiedere la generazione dei video AI dall’anteprima", asyn
   await expect(videoDialog.getByText("Sezione 2 · 5 s")).toBeVisible();
   await expect(videoDialog.locator(".video-dialog-total")).toContainText("Totale stimato");
   await expect(videoDialog.locator(".video-dialog-total")).toContainText(/0,29\s+\$/);
+  await expect(videoDialog.getByText(/Confermando, la generazione parte subito/)).toBeVisible();
 
   await page.keyboard.press("Escape");
   await expect(videoDialog).toHaveCount(0);
   await expect(preview).toBeVisible();
 
+  await page.clock.install();
   await preview.getByRole("button", { name: /Crea i video AI/ }).click();
   await page.getByRole("alertdialog", { name: "Crea i video AI" })
-    .getByRole("button", { name: "Conferma richiesta" })
+    .getByRole("button", { name: /Conferma e genera.*0,29\s+\$/ })
     .click();
   await expect(preview.getByRole("button", { name: /Crea i video AI/ })).toHaveCount(0);
+  await expect(page.getByRole("status")).toContainText("Sezione 2 · In generazione…");
+  await page.clock.fastForward(5_000);
+  await expect(page.getByRole("status")).toContainText("Sezione 2 · Pronta");
 
   await preview.getByRole("button", { name: "Chiudi" }).click();
-  await expect(page.getByRole("status")).toContainText("Richiesta di creazione registrata per 1 clip");
+  await expect(page.getByRole("status")).toContainText("Sezione 2 · Pronta");
+  const completedPreview = await openSitePreview(page);
+  await expect(completedPreview.getByText("video AI generati")).toBeVisible();
+  await expect(completedPreview.getByRole("region", { name: "Sezione 2" }).locator("video"))
+    .toHaveAttribute("src", "/e2e/fixtures/story.mp4");
+  await expect(completedPreview.getByText("Simulazione: qui andrà la clip AI")).toHaveCount(0);
 });
