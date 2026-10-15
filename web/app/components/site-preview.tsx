@@ -20,12 +20,7 @@ function frameOf(section?: Section): FileRef | null {
 
 function PreviewText({ block, fallback }: { block?: TextBlock; fallback: string }) {
   if (block?.mode === "ai") {
-    return (
-      <>
-        <p className="preview-ai-badge"><Icon name="sparkle" /> Testo generato dall’AI</p>
-        <h2>{block.brief?.trim() ? `«${block.brief.trim()}»` : fallback}</h2>
-      </>
-    );
+    return <h2>{block.brief?.trim() || fallback}</h2>;
   }
   return (
     <>
@@ -41,15 +36,139 @@ function PreviewImage({ url, label, style }: { url?: string; label: string; styl
   return <img className="preview-media" src={url} alt="" style={style} />;
 }
 
-function PreviewVideo({ url, progress }: { url?: string; progress: number }) {
+function PreviewVideo({
+  url,
+  progress,
+  poster,
+}: {
+  url?: string;
+  progress: number;
+  poster?: string;
+}) {
+  return <PreviewVideoFrame key={url ?? "missing"} url={url} progress={progress} poster={poster} />;
+}
+
+function PreviewVideoFrame({
+  url,
+  progress,
+  poster,
+}: {
+  url?: string;
+  progress: number;
+  poster?: string;
+}) {
   const ref = useRef<HTMLVideoElement>(null);
+  const targetProgress = useRef(progress);
+  const shownTime = useRef(0);
+  const [source, setSource] = useState<string | undefined>(() =>
+    url?.startsWith("blob:") ? url : undefined,
+  );
+  const [metadataReady, setMetadataReady] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
+
+  useEffect(() => {
+    targetProgress.current = clamp(progress);
+  }, [progress]);
+
+  useEffect(() => {
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const updatePreference = () => setReducedMotion(query.matches);
+    updatePreference();
+    query.addEventListener("change", updatePreference);
+    return () => query.removeEventListener("change", updatePreference);
+  }, []);
+
+  useEffect(() => {
+    shownTime.current = 0;
+
+    if (!url || url.startsWith("blob:")) return;
+
+    const controller = new AbortController();
+    let active = true;
+    let objectUrl: string | null = null;
+
+    fetch(url, { signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) throw new Error("Video non disponibile.");
+        return response.blob();
+      })
+      .then((blob) => {
+        if (!active) return;
+        objectUrl = URL.createObjectURL(blob);
+        setSource(objectUrl);
+      })
+      .catch(() => {
+        if (active) setSource(url);
+      });
+
+    return () => {
+      active = false;
+      controller.abort();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [url]);
+
   useEffect(() => {
     const video = ref.current;
+    if (!video || !metadataReady) return;
+
+    let animationFrame = 0;
+    const scrub = () => {
+      const duration = video.duration;
+      if (Number.isFinite(duration) && duration > 0) {
+        const maxTime = Math.max(0, duration - 0.05);
+        const target = Math.min(maxTime, targetProgress.current * duration);
+        const difference = target - shownTime.current;
+        const shown = Math.abs(difference) < 0.001
+          ? target
+          : shownTime.current + difference * (reducedMotion ? 1 : 0.12);
+        shownTime.current = shown;
+
+        if (!video.seeking && Math.abs(video.currentTime - shown) > 0.01) {
+          video.currentTime = shown;
+        }
+      }
+      animationFrame = requestAnimationFrame(scrub);
+    };
+
+    animationFrame = requestAnimationFrame(scrub);
+    return () => cancelAnimationFrame(animationFrame);
+  }, [metadataReady, reducedMotion, source]);
+
+  const handleLoadedMetadata = () => {
+    const video = ref.current;
     if (!video || !Number.isFinite(video.duration) || video.duration <= 0) return;
-    video.currentTime = Math.min(video.duration - 0.05, progress * video.duration);
-  }, [progress]);
+    const target = Math.min(
+      Math.max(0, video.duration - 0.05),
+      targetProgress.current * video.duration,
+    );
+    shownTime.current = target;
+    if (!video.seeking && Math.abs(video.currentTime - target) > 0.01) {
+      video.currentTime = target;
+    }
+    setMetadataReady(true);
+  };
+
   if (!url) return <div className="preview-media preview-missing"><span>Video da ricaricare</span></div>;
-  return <video ref={ref} className="preview-media" src={url} muted playsInline preload="auto" />;
+  return (
+    <>
+      {!loaded && poster && <PreviewImage url={poster} label="Foto iniziale" />}
+      {source && (
+        <video
+          ref={ref}
+          className="preview-media"
+          src={source}
+          muted
+          playsInline
+          preload="auto"
+          onLoadedMetadata={handleLoadedMetadata}
+          onLoadedData={() => setLoaded(true)}
+          style={poster ? { opacity: loaded ? 1 : 0 } : undefined}
+        />
+      )}
+    </>
+  );
 }
 
 const chromeCache = new Map<string, Promise<SiteChrome | null>>();
@@ -264,7 +383,7 @@ export default function SitePreview({
           } else {
             const start = section.media.linkPrevious ? frameOf(data.sections[index - 1]) : section.media.startPhoto;
             media = clipUrls[section.id]
-              ? <PreviewVideo url={clipUrls[section.id]} progress={mediaProgress} />
+              ? <PreviewVideo url={clipUrls[section.id]} progress={mediaProgress} poster={urlOf(start)} />
               : (
                 <>
                   <PreviewImage url={urlOf(start)} label="Foto iniziale" style={{ transform: `scale(${1 + mediaProgress * 0.12})` }} />

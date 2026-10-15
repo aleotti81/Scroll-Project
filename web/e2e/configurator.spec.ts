@@ -242,6 +242,6 @@ test("consente di richiedere la generazione dei video AI dall’anteprima", asyn
   const completedPreview = await openSitePreview(page);
   await expect(completedPreview.getByText("video AI generati")).toBeVisible();
   await expect(completedPreview.getByRole("region", { name: "Sezione 2" }).locator("video"))
-    .toHaveAttribute("src", "/e2e/fixtures/story.mp4");
+    .toHaveAttribute("src", /^blob:/);
   await expect(completedPreview.getByText("Simulazione: qui andrà la clip AI")).toHaveCount(0);
 });

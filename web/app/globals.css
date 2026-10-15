@@ -1847,17 +1847,6 @@ svg {
   letter-spacing: .12em;
 }
 
-.preview-copy .preview-ai-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: .4em;
-  margin-bottom: 10px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, .18);
-  font-size: 13px;
-}
-
 .preview-ai-note {
   position: absolute;
   right: 12px;

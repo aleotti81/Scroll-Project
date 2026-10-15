@@ -13,6 +13,10 @@ const falMocks = vi.hoisted(() => ({
   status: vi.fn(),
   result: vi.fn(),
 }));
+const clipStoreMocks = vi.hoisted(() => ({
+  ensureEncodedClip: vi.fn(),
+  hasEncodedClip: vi.fn(),
+}));
 
 vi.mock("@fal-ai/client", () => ({
   fal: {
@@ -25,6 +29,8 @@ vi.mock("@fal-ai/client", () => ({
     },
   },
 }));
+
+vi.mock("../lib/clip-store", () => clipStoreMocks);
 
 const TEST_CREDENTIALS = "test-fal-key-not-real";
 const REQUEST_ID = "req-12345678";
@@ -66,6 +72,7 @@ async function responseBody(response: Response): Promise<Record<string, unknown>
 beforeEach(() => {
   delete process.env.FAL_KEY;
   vi.resetAllMocks();
+  clipStoreMocks.hasEncodedClip.mockResolvedValue(false);
 });
 
 afterEach(() => {
@@ -224,16 +231,54 @@ describe("GET /api/video-clips/[requestId]", () => {
     falMocks.result.mockResolvedValue({
       data: { video: { url: "https://storage.fal.ai/result.mp4" } },
     });
+    clipStoreMocks.ensureEncodedClip.mockResolvedValue(
+      "/project/web/.generated-clips/req-12345678.mp4",
+    );
 
     const response = await getStatus();
 
     expect(response.status).toBe(200);
     expect(await responseBody(response)).toEqual({
       status: "done",
-      videoUrl: "https://storage.fal.ai/result.mp4",
+      videoUrl: "/api/video-clips/req-12345678/file",
     });
     expect(falMocks.result).toHaveBeenCalledWith(FAL_VIDEO_ENDPOINT, {
       requestId: REQUEST_ID,
+    });
+    expect(clipStoreMocks.ensureEncodedClip).toHaveBeenCalledWith(
+      REQUEST_ID,
+      "https://storage.fal.ai/result.mp4",
+    );
+  });
+
+  it("uses the cached encoded clip without contacting fal.ai", async () => {
+    clipStoreMocks.hasEncodedClip.mockResolvedValue(true);
+
+    const response = await getStatus();
+
+    expect(response.status).toBe(200);
+    expect(await responseBody(response)).toEqual({
+      status: "done",
+      videoUrl: "/api/video-clips/req-12345678/file",
+    });
+    expect(falMocks.config).not.toHaveBeenCalled();
+    expect(falMocks.status).not.toHaveBeenCalled();
+  });
+
+  it("returns a conversion error when encoding fails", async () => {
+    process.env.FAL_KEY = TEST_CREDENTIALS;
+    falMocks.status.mockResolvedValue({ status: "COMPLETED" });
+    falMocks.result.mockResolvedValue({
+      data: { video: { url: "https://storage.fal.ai/result.mp4" } },
+    });
+    clipStoreMocks.ensureEncodedClip.mockRejectedValue(new Error("mocked ffmpeg failure"));
+
+    const response = await getStatus();
+
+    expect(response.status).toBe(200);
+    expect(await responseBody(response)).toEqual({
+      status: "error",
+      error: "Conversione della clip non riuscita.",
     });
   });
 

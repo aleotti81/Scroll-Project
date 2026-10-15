@@ -3,6 +3,7 @@ import {
   configureFalClient,
   FAL_VIDEO_ENDPOINT,
 } from "../../../../lib/fal-video";
+import { ensureEncodedClip, hasEncodedClip } from "../../../../lib/clip-store";
 
 export const runtime = "nodejs";
 
@@ -19,6 +20,19 @@ export async function GET(
   if (!REQUEST_ID_PATTERN.test(requestId)) {
     return Response.json({ error: "ID richiesta non valido." }, { status: 400 });
   }
+
+  const videoUrl = `/api/video-clips/${encodeURIComponent(requestId)}/file`;
+  try {
+    if (await hasEncodedClip(requestId)) {
+      return Response.json({ status: "done", videoUrl });
+    }
+  } catch {
+    return Response.json({
+      status: "error",
+      error: "Conversione della clip non riuscita.",
+    });
+  }
+
   if (!configureFalClient()) {
     return Response.json({ error: "Generazione video non configurata." }, { status: 503 });
   }
@@ -32,10 +46,19 @@ export async function GET(
         return Response.json({ status: "running" });
       case "COMPLETED": {
         const result = await fal.queue.result(FAL_VIDEO_ENDPOINT, { requestId });
-        const videoUrl = result.data.video?.url;
-        return videoUrl
-          ? Response.json({ status: "done", videoUrl })
-          : Response.json({ status: "error", error: GENERATION_ERROR });
+        const sourceUrl = result.data.video?.url;
+        if (!sourceUrl) {
+          return Response.json({ status: "error", error: GENERATION_ERROR });
+        }
+        try {
+          await ensureEncodedClip(requestId, sourceUrl);
+          return Response.json({ status: "done", videoUrl });
+        } catch {
+          return Response.json({
+            status: "error",
+            error: "Conversione della clip non riuscita.",
+          });
+        }
       }
       case "FAILED":
       default:
