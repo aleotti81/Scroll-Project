@@ -894,7 +894,7 @@ export default function ConfiguratorWizard() {
       });
       const warning = kind === "image" ? imageResolutionWarning(dimensions.width, dimensions.height) : undefined;
       setFileWarnings((current) => warning ? { ...current, [currentKey]: warning } : { ...current, [currentKey]: "" });
-      setValue(currentPath, fileRef as never, { shouldDirty: true, shouldValidate: true });
+      setValue(currentPath, fileRef as never, { shouldValidate: true });
     } catch (error) {
       if (!isCurrentRequest()) return;
       const currentPath = resolveCurrentPath();
