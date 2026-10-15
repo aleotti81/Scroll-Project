@@ -19,6 +19,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Image from "next/image";
 import Link from "next/link";
+import { Icon } from "@/app/components/icons";
 import {
   useCallback,
   useEffect,
@@ -263,9 +264,10 @@ function SortableSection({
           className="drag-handle"
           type="button"
           aria-label="Trascina per riordinare"
+          title="Trascina per riordinare"
           {...attributes}
           {...listeners}
-        >⠿</button>,
+        ><Icon name="grip" /></button>,
         style,
       )}
     </div>
@@ -297,13 +299,21 @@ function TextBlockFields({
             type="button"
             className={mode === "manual" ? "is-selected" : ""}
             aria-pressed={mode === "manual"}
-            onClick={() => setValue(modePath, "manual" as never, { shouldDirty: true, shouldValidate: true })}
+            onClick={() => setValue(
+              basePath as FieldPath<ConfiguratorData>,
+              { mode: "manual", title: "", subtitle: "" } as never,
+              { shouldDirty: true, shouldValidate: true },
+            )}
           >Manuale</button>
           <button
             type="button"
             className={mode === "ai" ? "is-selected" : ""}
             aria-pressed={mode === "ai"}
-            onClick={() => setValue(modePath, "ai" as never, { shouldDirty: true, shouldValidate: true })}
+            onClick={() => setValue(
+              basePath as FieldPath<ConfiguratorData>,
+              { mode: "ai", brief: "" } as never,
+              { shouldDirty: true, shouldValidate: true },
+            )}
           >Generato da AI</button>
         </div>
       </div>
@@ -355,8 +365,49 @@ export default function ConfiguratorWizard() {
   const [fileWarnings, setFileWarnings] = useState<Record<string, string>>({});
   const [success, setSuccess] = useState("");
   const files = useRef(new Map<string, StoredFile>());
+  const uploadVersions = useRef(new Map<string, number>());
   const fileUrlsRef = useRef(fileUrls);
   fileUrlsRef.current = fileUrls;
+
+  useEffect(() => {
+    const referencedIds = new Set<string>();
+    const addFileRef = (fileRef?: FileRef | null) => {
+      if (fileRef?.id) referencedIds.add(fileRef.id);
+    };
+    addFileRef(watched.brand?.logo);
+    sections.forEach((section) => {
+      if (section.type === "A") {
+        addFileRef(section.photo);
+      } else if (section.media.source === "photos") {
+        addFileRef(section.media.startPhoto);
+        addFileRef(section.media.endPhoto);
+      } else {
+        addFileRef(section.media.video);
+      }
+    });
+
+    const unreferencedIds: string[] = [];
+    files.current.forEach(({ url }, id) => {
+      if (!referencedIds.has(id)) {
+        URL.revokeObjectURL(url);
+        files.current.delete(id);
+        unreferencedIds.push(id);
+      }
+    });
+    if (unreferencedIds.length) {
+      setFileUrls((current) => {
+        const next = { ...current };
+        unreferencedIds.forEach((id) => delete next[id]);
+        return next;
+      });
+    }
+  }, [sections, watched.brand?.logo]);
+
+  useEffect(() => () => {
+    files.current.forEach(({ url }) => URL.revokeObjectURL(url));
+    files.current.clear();
+    uploadVersions.current.clear();
+  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -410,7 +461,7 @@ export default function ConfiguratorWizard() {
   const hasUsableFrame = useCallback((index: number) => {
     const previous = sections[index - 1] as Section | undefined;
     const frame = getSectionFrame(previous);
-    return Boolean(frame && fileUrlsRef.current[frame.id]);
+    return Boolean(frame);
   }, [sections]);
 
   useEffect(() => {
@@ -431,13 +482,36 @@ export default function ConfiguratorWizard() {
     path: FieldPath<ConfiguratorData>,
     file: File | undefined,
     kind: FileKind,
+    sectionId?: string,
   ) => {
     if (!file) return;
     const key = String(path);
+    const fieldName = sectionId ? key.replace(/^sections\.\d+\./, "") : key;
+    const requestKey = sectionId ? `${sectionId}:${fieldName}` : fieldName;
+    const requestVersion = (uploadVersions.current.get(requestKey) ?? 0) + 1;
+    uploadVersions.current.set(requestKey, requestVersion);
+    const isCurrentRequest = () => uploadVersions.current.get(requestKey) === requestVersion;
+    const resolveCurrentPath = (): FieldPath<ConfiguratorData> | null => {
+      if (!sectionId) return path;
+      const currentSections = getValues("sections");
+      const index = currentSections.findIndex((section) => section.id === sectionId);
+      const section = currentSections[index];
+      if (!section) return null;
+      if (fieldName === "photo" && section.type !== "A") return null;
+      if (fieldName === "media.video" && (section.type === "A" || section.media.source !== "video")) return null;
+      if (
+        (fieldName === "media.startPhoto" || fieldName === "media.endPhoto") &&
+        (section.type === "A" || section.media.source !== "photos")
+      ) return null;
+      return `sections.${index}.${fieldName}` as FieldPath<ConfiguratorData>;
+    };
     const check = kind === "image" ? validateImageFile(file) : validateVideoFile(file);
     if (check.error) {
-      setFileErrors((current) => ({ ...current, [key]: check.error! }));
-      setValue(path, null as never, { shouldDirty: true, shouldValidate: true });
+      const currentPath = resolveCurrentPath();
+      if (!isCurrentRequest() || !currentPath) return;
+      const currentKey = String(currentPath);
+      setFileErrors((current) => ({ ...current, [currentKey]: check.error! }));
+      setValue(currentPath, null as never, { shouldDirty: true, shouldValidate: true });
       return;
     }
     try {
@@ -448,27 +522,38 @@ export default function ConfiguratorWizard() {
         duration = await readVideoDuration(file);
         const durationCheck = validateVideoDuration(duration);
         if (durationCheck.error) {
-          setFileErrors((current) => ({ ...current, [key]: durationCheck.error! }));
-          setValue(path, null as never, { shouldDirty: true, shouldValidate: true });
+          const currentPath = resolveCurrentPath();
+          if (!isCurrentRequest() || !currentPath) return;
+          const currentKey = String(currentPath);
+          setFileErrors((current) => ({ ...current, [currentKey]: durationCheck.error! }));
+          setValue(currentPath, null as never, { shouldDirty: true, shouldValidate: true });
           return;
         }
       }
+      if (!isCurrentRequest()) return;
+      const currentPath = resolveCurrentPath();
+      if (!currentPath) return;
+      const currentKey = String(currentPath);
       const fileRef = toFileRef(file, dimensions, duration);
       const url = URL.createObjectURL(file);
       files.current.set(fileRef.id, { file, url });
       setFileUrls((current) => ({ ...current, [fileRef.id]: url }));
       setFileErrors((current) => {
         const next = { ...current };
-        delete next[key];
+        delete next[currentKey];
         return next;
       });
       const warning = kind === "image" ? imageResolutionWarning(dimensions.width, dimensions.height) : undefined;
-      setFileWarnings((current) => warning ? { ...current, [key]: warning } : { ...current, [key]: "" });
-      setValue(path, fileRef as never, { shouldDirty: true, shouldValidate: true });
+      setFileWarnings((current) => warning ? { ...current, [currentKey]: warning } : { ...current, [currentKey]: "" });
+      setValue(currentPath, fileRef as never, { shouldDirty: true, shouldValidate: true });
     } catch (error) {
-      setFileErrors((current) => ({ ...current, [key]: error instanceof Error ? error.message : "Impossibile leggere il file." }));
+      if (!isCurrentRequest()) return;
+      const currentPath = resolveCurrentPath();
+      if (!currentPath) return;
+      const currentKey = String(currentPath);
+      setFileErrors((current) => ({ ...current, [currentKey]: error instanceof Error ? error.message : "Impossibile leggere il file." }));
     }
-  }, [setValue]);
+  }, [getValues, setValue]);
 
   const filePicker = (
     path: FieldPath<ConfiguratorData>,
@@ -476,24 +561,29 @@ export default function ConfiguratorWizard() {
     kind: FileKind,
     fileRef?: FileRef | null,
     required = true,
+    sectionId?: string,
   ) => {
     const key = String(path);
     const id = key.replaceAll(".", "-");
     const url = fileRef ? fileUrls[fileRef.id] : undefined;
     const accept = kind === "image" ? "image/jpeg,image/png,image/webp,image/heic,image/heif" : "video/mp4,video/quicktime,video/webm";
+    const chooseLabel = kind === "video" ? "Scegli video" : key === "brand.logo" ? "Scegli logo" : "Scegli foto";
     return (
       <div className="field">
         <label htmlFor={id}>{label}{required ? " *" : ""}</label>
         <div className="file-control">
           <input
             id={id}
+            className="file-input-visually-hidden"
             type="file"
             accept={accept}
             aria-describedby={[fileErrors[key] ? `${id}-error` : "", fileWarnings[key] ? `${id}-warning` : ""].filter(Boolean).join(" ") || undefined}
             onChange={(event: ChangeEvent<HTMLInputElement>) => {
-              void uploadFile(path, event.target.files?.[0], kind);
+              void uploadFile(path, event.target.files?.[0], kind, sectionId);
             }}
           />
+          <label className="file-choose-button" htmlFor={id}>{chooseLabel}</label>
+          <span className="file-name">{fileRef?.name ?? "Nessun file selezionato"}</span>
           <FilePreview fileRef={fileRef} url={url} kind={kind} />
         </div>
         {fileErrors[key] && <span className="field-error" id={`${id}-error`} role="alert">{fileErrors[key]}</span>}
@@ -595,13 +685,6 @@ export default function ConfiguratorWizard() {
     if (target > fields.length) {
       for (let index = fields.length; index < target; index += 1) append(blankSection("A") as never);
     } else if (target < fields.length) {
-      const removed = sections.slice(target);
-      removed.forEach((section) => {
-        if (section.type === "A" && section.photo?.id) {
-          const url = files.current.get(section.photo.id)?.url;
-          if (url) URL.revokeObjectURL(url);
-        }
-      });
       remove(Array.from({ length: fields.length - target }, (_, index) => target + index));
     }
   };
@@ -620,6 +703,7 @@ export default function ConfiguratorWizard() {
   };
 
   const chooseSectionType = (index: number, type: "A" | "B" | "C") => {
+    if (sections[index]?.type === type) return;
     setValue(`sections.${index}` as FieldPath<ConfiguratorData>, blankSection(type, sections[index]?.id) as never, { shouldDirty: true, shouldValidate: true });
   };
 
@@ -649,9 +733,6 @@ export default function ConfiguratorWizard() {
   const clearDraft = () => {
     localStorage.removeItem(draftKey);
     window.clearTimeout(saveTimer.current);
-    files.current.forEach(({ url }) => URL.revokeObjectURL(url));
-    files.current.clear();
-    setFileUrls({});
     setFileErrors({});
     setFileWarnings({});
     setDraftRestored(false);
@@ -669,6 +750,16 @@ export default function ConfiguratorWizard() {
     anchor.download = filename;
     anchor.click();
     URL.revokeObjectURL(url);
+  };
+
+  const exportConfiguredData = (filename: "brand.json" | "scenes.json") => {
+    const values = getValues();
+    const parsed = configuratorSchema.safeParse(values);
+    if (!parsed.success || missingFileIssues(values).length > 0) return;
+    const data = filename === "brand.json"
+      ? { ...parsed.data.brand, style: parsed.data.style }
+      : { version: 1, sections: parsed.data.sections };
+    exportJson(filename, data);
   };
 
   const summaryIssues = getIssues(watched);
@@ -701,20 +792,21 @@ export default function ConfiguratorWizard() {
             <h3>Sezione {index + 1}</h3>
           </div>
           <div className="section-actions">
-            <button className="icon-button" type="button" aria-label={`Sposta sezione ${index + 1} su`} disabled={index === 0} onClick={() => reorderSections(index, index - 1)}>↑</button>
-            <button className="icon-button" type="button" aria-label={`Sposta sezione ${index + 1} giù`} disabled={index === sectionTotal - 1} onClick={() => reorderSections(index, index + 1)}>↓</button>
+            <button className="icon-button" type="button" aria-label={`Sposta sezione ${index + 1} su`} title={`Sposta sezione ${index + 1} su`} disabled={index === 0} onClick={() => reorderSections(index, index - 1)}><Icon name="chevron-up" /></button>
+            <button className="icon-button" type="button" aria-label={`Sposta sezione ${index + 1} giù`} title={`Sposta sezione ${index + 1} giù`} disabled={index === sectionTotal - 1} onClick={() => reorderSections(index, index + 1)}><Icon name="chevron-down" /></button>
             <button
               className="icon-button"
               type="button"
               aria-label={`Duplica sezione ${index + 1}`}
+              title={`Duplica sezione ${index + 1}`}
               disabled={sectionTotal >= 12}
               onClick={() => {
                 const copy = structuredClone(sections[index]) as Section;
                 copy.id = crypto.randomUUID();
                 append(copy as never, { shouldFocus: false });
               }}
-            >＋</button>
-            <button className="icon-button" type="button" aria-label={`Rimuovi sezione ${index + 1}`} disabled={sectionTotal <= 1} onClick={() => remove(index)}>×</button>
+            ><Icon name="copy" /></button>
+            <button className="icon-button" type="button" aria-label={`Rimuovi sezione ${index + 1}`} title={`Rimuovi sezione ${index + 1}`} disabled={sectionTotal <= 1} onClick={() => remove(index)}><Icon name="close" /></button>
           </div>
         </div>
         <div className="section-type-grid" role="group" aria-label={`Tipo della sezione ${index + 1}`}>
@@ -743,7 +835,7 @@ export default function ConfiguratorWizard() {
           <div className="section-fields">
             <div className="subsection">
               <h4>Foto a tutto schermo</h4>
-              {filePicker(`sections.${index}.photo` as FieldPath<ConfiguratorData>, "Foto", "image", sectionData.photo, true)}
+              {filePicker(`sections.${index}.photo` as FieldPath<ConfiguratorData>, "Foto", "image", sectionData.photo, true, sectionId)}
             </div>
             <div className="subsection">
               <h4>Testo iniziale</h4>
@@ -772,7 +864,7 @@ export default function ConfiguratorWizard() {
                   {fileUrls[inheritedFrame.id] ? <Image src={fileUrls[inheritedFrame.id]} alt="Fotogramma ereditato dalla sezione precedente" width={82} height={55} unoptimized /> : <span className="file-preview-missing">Da ricaricare</span>}
                       <span>Immagine ereditata · {inheritedFrame.name}</span>
                     </div>
-                  ) : filePicker(`sections.${index}.media.startPhoto` as FieldPath<ConfiguratorData>, "Foto iniziale", "image", media.startPhoto, true)}
+                  ) : filePicker(`sections.${index}.media.startPhoto` as FieldPath<ConfiguratorData>, "Foto iniziale", "image", media.startPhoto, true, sectionId)}
                   <label className="check-row" style={{ marginTop: 12 }}>
                     <input
                       type="checkbox"
@@ -791,7 +883,7 @@ export default function ConfiguratorWizard() {
                 </div>
                 <div className="subsection">
                   <h4>Fotogramma finale</h4>
-                  {filePicker(`sections.${index}.media.endPhoto` as FieldPath<ConfiguratorData>, "Foto finale", "image", media.endPhoto, true)}
+                  {filePicker(`sections.${index}.media.endPhoto` as FieldPath<ConfiguratorData>, "Foto finale", "image", media.endPhoto, true, sectionId)}
                   <div className="field" style={{ marginTop: 14 }}>
                     <label htmlFor={`duration-${index}`}>Durata clip stimata</label>
                     <select
@@ -812,7 +904,7 @@ export default function ConfiguratorWizard() {
             ) : (
               <div className="subsection">
                 <h4>Video pronto</h4>
-                {filePicker(`sections.${index}.media.video` as FieldPath<ConfiguratorData>, "Video", "video", media?.source === "video" ? media.video : null, true)}
+                {filePicker(`sections.${index}.media.video` as FieldPath<ConfiguratorData>, "Video", "video", media?.source === "video" ? media.video : null, true, sectionId)}
                 <p className="cost-badge">Nessun costo AI per i video caricati.</p>
               </div>
             )}
@@ -862,7 +954,7 @@ export default function ConfiguratorWizard() {
     <div className="wizard-shell">
       <header className="wizard-topbar">
         <Link className="wordmark" href="/">scroll<span>studio</span></Link>
-        <div className="topbar-meta"><span>PROGETTA IL TUO SITO</span><Link href="/">← Torna al sito</Link></div>
+        <div className="topbar-meta"><span>PROGETTA IL TUO SITO</span><Link href="/"><Icon name="arrow-left" /> Torna al sito</Link></div>
       </header>
       <main className="wizard-main">
         <div className="wizard-heading">
@@ -877,7 +969,7 @@ export default function ConfiguratorWizard() {
             const currentStep = index + 1;
             return (
               <div key={name} className={`step-item ${step === currentStep ? "is-active" : ""} ${step > currentStep ? "is-complete" : ""}`} aria-current={step === currentStep ? "step" : undefined}>
-                <span className="step-number">{step > currentStep ? "✓" : currentStep}</span>
+                <span className="step-number">{step > currentStep ? <Icon name="check" /> : currentStep}</span>
                 <span>{name}</span>
               </div>
             );
@@ -963,7 +1055,7 @@ export default function ConfiguratorWizard() {
                         <button type="button" onClick={addKeyword} disabled={keywordList.length >= 5}>Aggiungi</button>
                       </div>
                       <div className="language-list">
-                        {keywordList.map((keyword, index) => <button key={`${keyword}-${index}`} className="choice-chip" type="button" aria-label={`Rimuovi keyword ${keyword}`} onClick={() => setValue("brand.seo.secondaryKeywords", keywordList.filter((_, current) => current !== index), { shouldDirty: true, shouldValidate: true })}>{keyword} ×</button>)}
+                        {keywordList.map((keyword, index) => <button key={`${keyword}-${index}`} className="choice-chip" type="button" aria-label={`Rimuovi keyword ${keyword}`} title={`Rimuovi keyword ${keyword}`} onClick={() => setValue("brand.seo.secondaryKeywords", keywordList.filter((_, current) => current !== index), { shouldDirty: true, shouldValidate: true })}>{keyword} <Icon name="close" /></button>)}
                       </div>
                       {getError("brand.seo.secondaryKeywords") && <span className="field-error" role="alert">{getError("brand.seo.secondaryKeywords")}</span>}
                     </div>
@@ -984,7 +1076,7 @@ export default function ConfiguratorWizard() {
               <>
                 <div className="step-heading"><p className="section-kicker">PASSO 3 DI 5</p><h2>Lo stile del tuo sito</h2><p>Colori e caratteri danno forma alla prima impressione.</p></div>
                 {copyStyle && <div className="notice-banner">Hai scelto di copiare lo stile del sito: colori e font sono impostati su “Sito” e i controlli manuali sono disattivati.</div>}
-                <button className="preset-button" type="button" onClick={applyHappyPreset} disabled={copyStyle}>✦ Prova lo stile “Come Happy Tuscany”</button>
+                <button className="preset-button" type="button" onClick={applyHappyPreset} disabled={copyStyle}><Icon name="sparkle" /> Prova lo stile “Come Happy Tuscany”</button>
                 <div className="form-section" style={{ marginTop: 0, paddingTop: 0, borderTop: 0 }}>
                   <h3 className="form-section-title">Colori</h3>
                   <div className="style-mode">
@@ -1052,7 +1144,7 @@ export default function ConfiguratorWizard() {
                       {Array.from({ length: 12 }, (_, index) => <option key={index + 1} value={index + 1}>{index + 1}</option>)}
                     </select>
                   </label>
-                  <button className="button-secondary" type="button" disabled={sectionTotal >= 12} onClick={() => append(blankSection("A") as never)}>＋ Aggiungi sezione</button>
+                  <button className="button-secondary" type="button" aria-label="Aggiungi sezione" title="Aggiungi sezione" disabled={sectionTotal >= 12} onClick={() => append(blankSection("A") as never)}><Icon name="plus" /> Aggiungi sezione</button>
                 </div>
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                   <SortableContext items={sections.map((section) => section.id)} strategy={verticalListSortingStrategy}>
@@ -1113,8 +1205,8 @@ export default function ConfiguratorWizard() {
                   <h3 className="form-section-title">Esporta o invia la bozza</h3>
                   <p className="field-hint">I file restano nel browser: brand.json e scenes.json contengono metadati, non i file originali.</p>
                   <div className="action-group" style={{ marginTop: 13, flexWrap: "wrap" }}>
-                    <button className="button-outline" type="button" onClick={() => exportJson("brand.json", { ...watched.brand, style: watched.style })}>Scarica brand.json</button>
-                    <button className="button-outline" type="button" onClick={() => exportJson("scenes.json", { version: 1, sections: watched.sections })}>Scarica scenes.json</button>
+                    <button className="button-outline" type="button" disabled={summaryIssues.length > 0} onClick={() => exportConfiguredData("brand.json")}>Scarica brand.json</button>
+                    <button className="button-outline" type="button" disabled={summaryIssues.length > 0} onClick={() => exportConfiguredData("scenes.json")}>Scarica scenes.json</button>
                     <button
                       className="button-secondary"
                       type="button"
@@ -1131,12 +1223,12 @@ export default function ConfiguratorWizard() {
             )}
           </div>
           <div className="wizard-actions">
-            <button className="button-outline" type="button" disabled={step === 1} onClick={() => { setStep((current) => current - 1); clearErrors(); }}>← Indietro</button>
+            <button className="button-outline" type="button" disabled={step === 1} onClick={() => { setStep((current) => current - 1); clearErrors(); }}><Icon name="arrow-left" /> Indietro</button>
             <div className="action-group">
               {step < 5 ? (
-                <button className="button button-dark" type="button" onClick={goNext}>Avanti <span aria-hidden="true">→</span></button>
+                <button className="button button-dark" type="button" onClick={goNext}>Avanti <Icon name="arrow-right" /></button>
               ) : (
-                <button className="button button-dark" type="button" onClick={() => { setStep(4); clearErrors(); }}>Modifica sezioni <span aria-hidden="true">↗</span></button>
+                <button className="button button-dark" type="button" onClick={() => { setStep(4); clearErrors(); }}>Modifica sezioni <Icon name="arrow-up-right" /></button>
               )}
             </div>
           </div>

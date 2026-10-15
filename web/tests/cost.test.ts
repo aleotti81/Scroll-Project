@@ -10,7 +10,7 @@ const file = {
 };
 
 describe("stima indicativa dei costi AI", () => {
-  it("stima $0.29 per una clip di cinque secondi e $0.58 per dieci", () => {
+  it("stima 0,29 USD per una clip di cinque secondi e 0,58 USD per dieci", () => {
     const clip5: Section = {
       id: "b",
       type: "B",
@@ -25,8 +25,8 @@ describe("stima indicativa dei costi AI", () => {
     };
     expect(sectionCost(clip5)).toBeCloseTo(0.29, 8);
     expect(sectionCost(clip10)).toBeCloseTo(0.58, 8);
-    expect(formatCost(sectionCost(clip5))).toBe("$0.29");
-    expect(formatCost(totalCost([clip5, clip10]))).toBe("$0.87");
+    expect(formatCost(sectionCost(clip5))).toBe("0,29 USD");
+    expect(formatCost(totalCost([clip5, clip10]))).toBe("0,87 USD");
   });
 
   it("non conteggia le sezioni A o i video già caricati", () => {

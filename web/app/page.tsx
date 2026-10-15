@@ -1,11 +1,12 @@
 import Link from "next/link";
+import { Icon } from "./components/icons";
 
 export default function Home() {
   return (
     <main className="landing">
       <nav className="landing-nav" aria-label="Navigazione principale">
         <Link className="wordmark" href="/">scroll<span>studio</span></Link>
-        <Link className="nav-cta" href="/crea">Inizia a progettare <span aria-hidden="true">↗</span></Link>
+        <Link className="nav-cta" href="/crea">Inizia a progettare <Icon name="arrow-up-right" /></Link>
       </nav>
       <section className="landing-hero">
         <div className="hero-copy">
@@ -16,7 +17,7 @@ export default function Home() {
             ogni idea, ogni dettaglio.
           </p>
           <Link className="button button-dark" href="/crea">
-            Crea il tuo progetto <span aria-hidden="true">↗</span>
+            Crea il tuo progetto <Icon name="arrow-up-right" />
           </Link>
           <div className="hero-note"><span className="note-line" /> Un brief semplice. Una storia tutta tua.</div>
         </div>
@@ -29,7 +30,7 @@ export default function Home() {
           <div className="art-card">
             <span>01 — IL TUO MONDO</span>
             <strong>Una storia<br />in movimento.</strong>
-            <i>SCROLL PER SCOPRIRE ↓</i>
+            <i>SCROLL PER SCOPRIRE <Icon name="arrow-down" /></i>
           </div>
           <span className="art-caption">Scroll Studio · 2025</span>
         </div>

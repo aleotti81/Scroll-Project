@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   configuratorSchema,
+  projectFieldsSchema,
   sectionsSchema,
   type ConfiguratorData,
   type FileRef,
@@ -133,6 +134,16 @@ describe("regole condizionali del progetto", () => {
     expect(configuratorSchema.safeParse(data).success).toBe(true);
     data.brand.existingSite.url = "";
     expect(configuratorSchema.safeParse(data).success).toBe(false);
+  });
+
+  it("valida un URL esistente anche senza attivare le opzioni del sito", () => {
+    const data = validData();
+    data.brand.existingSite.url = "non-un-url";
+    expect(projectFieldsSchema.safeParse(data.brand).success).toBe(false);
+    expect(configuratorSchema.safeParse(data).success).toBe(false);
+    data.brand.existingSite.url = "https://example.com";
+    expect(projectFieldsSchema.safeParse(data.brand).success).toBe(true);
+    expect(configuratorSchema.safeParse(data).success).toBe(true);
   });
 
   it("impone lo stile del sito se la copia dello stile è attiva", () => {

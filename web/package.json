@@ -15,7 +15,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@hookform/resolvers": "^5.2.2",
-    "next": "16.3.4",
+    "next": "^16.4.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-hook-form": "^7.62.0",
@@ -28,7 +28,7 @@
     "@types/react": "^19.1.13",
     "@types/react-dom": "^19.1.9",
     "eslint": "^9.35.0",
-    "eslint-config-next": "16.3.4",
+    "eslint-config-next": "^16.4.1",
     "tailwindcss": "^4.1.13",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4"

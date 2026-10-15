@@ -41,7 +41,7 @@ export function readImageDimensions(file: File): Promise<{ width?: number; heigh
   if (/\.hei[cf]$/i.test(file.name) || /image\/hei[cf]/i.test(file.type)) {
     return Promise.resolve({});
   }
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const image = new Image();
     image.onload = () => {
@@ -49,8 +49,8 @@ export function readImageDimensions(file: File): Promise<{ width?: number; heigh
       URL.revokeObjectURL(url);
     };
     image.onerror = () => {
-      resolve({});
       URL.revokeObjectURL(url);
+      reject(new Error("Immagine non leggibile."));
     };
     image.src = url;
   });
