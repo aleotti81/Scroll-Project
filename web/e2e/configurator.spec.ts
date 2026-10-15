@@ -22,6 +22,31 @@ test("ripristina la bozza dopo aver ricaricato la pagina", async ({ page }) => {
   await expect(page.getByLabel("Nome della struttura o del progetto")).toHaveValue("La mia casa di prova");
 });
 
+test("mantiene il testo quando si riseleziona la modalità attiva", async ({ page }) => {
+  await page.goto("/crea");
+  await page.getByLabel("Nome della struttura o del progetto").fill("Casa delle colline");
+  await page.getByLabel("Missione").fill("Accogliere con cura e semplicità.");
+  await page.getByLabel("Valori e senso").fill("Natura, lentezza, ospitalità.");
+  await page.getByLabel("A chi ti rivolgi?").fill("Viaggiatori curiosi.");
+  await page.getByRole("button", { name: "Avanti" }).click();
+
+  await page.getByLabel("Keyword primaria").fill("casa vacanze in Toscana");
+  await page.getByLabel("Titolo SEO").fill("La casa tra le colline");
+  await page.getByRole("button", { name: "Avanti" }).click();
+  await page.getByRole("button", { name: "Avanti" }).click();
+
+  const firstSection = page.getByRole("region", { name: "Sezione 1" });
+  await page.locator("#sections-0-text1-title").fill("Benvenuti");
+  await firstSection.getByRole("button", { name: "Manuale" }).first().click();
+  await expect(page.locator("#sections-0-text1-title")).toHaveValue("Benvenuti");
+
+  await firstSection.getByRole("button", { name: "Generato da AI" }).first().click();
+  const brief = firstSection.getByLabel("Cosa raccontare").first();
+  await brief.fill("Una storia accogliente.");
+  await firstSection.getByRole("button", { name: "Generato da AI" }).first().click();
+  await expect(brief).toHaveValue("Una storia accogliente.");
+});
+
 test("completa il configuratore ed esporta le scene con una clip AI da 0,29 $", async ({ page }, testInfo) => {
   await page.goto("/crea");
 

@@ -299,21 +299,27 @@ function TextBlockFields({
             type="button"
             className={mode === "manual" ? "is-selected" : ""}
             aria-pressed={mode === "manual"}
-            onClick={() => setValue(
-              basePath as FieldPath<ConfiguratorData>,
-              { mode: "manual", title: "", subtitle: "" } as never,
-              { shouldDirty: true, shouldValidate: true },
-            )}
+            onClick={() => {
+              if (mode === "manual") return;
+              setValue(
+                basePath as FieldPath<ConfiguratorData>,
+                { mode: "manual", title: "", subtitle: "" } as never,
+                { shouldDirty: true, shouldValidate: true },
+              );
+            }}
           >Manuale</button>
           <button
             type="button"
             className={mode === "ai" ? "is-selected" : ""}
             aria-pressed={mode === "ai"}
-            onClick={() => setValue(
-              basePath as FieldPath<ConfiguratorData>,
-              { mode: "ai", brief: "" } as never,
-              { shouldDirty: true, shouldValidate: true },
-            )}
+            onClick={() => {
+              if (mode === "ai") return;
+              setValue(
+                basePath as FieldPath<ConfiguratorData>,
+                { mode: "ai", brief: "" } as never,
+                { shouldDirty: true, shouldValidate: true },
+              );
+            }}
           >Generato da AI</button>
         </div>
       </div>
@@ -366,8 +372,20 @@ export default function ConfiguratorWizard() {
   const [success, setSuccess] = useState("");
   const files = useRef(new Map<string, StoredFile>());
   const uploadVersions = useRef(new Map<string, number>());
+  const uploadSeq = useRef(0);
   const fileUrlsRef = useRef(fileUrls);
   fileUrlsRef.current = fileUrls;
+
+  const invalidateUploads = (sectionId?: string) => {
+    if (sectionId === undefined) {
+      uploadVersions.current.clear();
+      return;
+    }
+    const prefix = `${sectionId}:`;
+    uploadVersions.current.forEach((_, key) => {
+      if (key.startsWith(prefix)) uploadVersions.current.delete(key);
+    });
+  };
 
   useEffect(() => {
     const referencedIds = new Set<string>();
@@ -488,7 +506,7 @@ export default function ConfiguratorWizard() {
     const key = String(path);
     const fieldName = sectionId ? key.replace(/^sections\.\d+\./, "") : key;
     const requestKey = sectionId ? `${sectionId}:${fieldName}` : fieldName;
-    const requestVersion = (uploadVersions.current.get(requestKey) ?? 0) + 1;
+    const requestVersion = ++uploadSeq.current;
     uploadVersions.current.set(requestKey, requestVersion);
     const isCurrentRequest = () => uploadVersions.current.get(requestKey) === requestVersion;
     const resolveCurrentPath = (): FieldPath<ConfiguratorData> | null => {
@@ -680,12 +698,20 @@ export default function ConfiguratorWizard() {
     if (validateStep()) setStep((current) => Math.min(5, current + 1));
   };
 
+  const removeSections = (indexes: number[]) => {
+    indexes.forEach((index) => {
+      const sectionId = sections[index]?.id;
+      if (sectionId) invalidateUploads(sectionId);
+    });
+    remove(indexes);
+  };
+
   const changeSectionCount = (count: number) => {
     const target = Math.min(12, Math.max(1, count));
     if (target > fields.length) {
       for (let index = fields.length; index < target; index += 1) append(blankSection("A") as never);
     } else if (target < fields.length) {
-      remove(Array.from({ length: fields.length - target }, (_, index) => target + index));
+      removeSections(Array.from({ length: fields.length - target }, (_, index) => target + index));
     }
   };
 
@@ -703,13 +729,17 @@ export default function ConfiguratorWizard() {
   };
 
   const chooseSectionType = (index: number, type: "A" | "B" | "C") => {
-    if (sections[index]?.type === type) return;
-    setValue(`sections.${index}` as FieldPath<ConfiguratorData>, blankSection(type, sections[index]?.id) as never, { shouldDirty: true, shouldValidate: true });
+    const current = sections[index];
+    if (!current || current.type === type) return;
+    invalidateUploads(current.id);
+    setValue(`sections.${index}` as FieldPath<ConfiguratorData>, blankSection(type, current.id) as never, { shouldDirty: true, shouldValidate: true });
   };
 
   const changeMediaSource = (index: number, source: "photos" | "video") => {
     const current = sections[index];
     if (!current || (current.type !== "B" && current.type !== "C")) return;
+    if (current.media.source === source) return;
+    invalidateUploads(current.id);
     const nextMedia = source === "photos"
       ? { source, startPhoto: null, endPhoto: null, linkPrevious: false, durationSec: 5 }
       : { source, video: null };
@@ -736,6 +766,7 @@ export default function ConfiguratorWizard() {
     setFileErrors({});
     setFileWarnings({});
     setDraftRestored(false);
+    invalidateUploads();
     reset(initialValues());
     setStep(1);
     setSuccess("");
@@ -806,7 +837,7 @@ export default function ConfiguratorWizard() {
                 append(copy as never, { shouldFocus: false });
               }}
             ><Icon name="copy" /></button>
-            <button className="icon-button" type="button" aria-label={`Rimuovi sezione ${index + 1}`} title={`Rimuovi sezione ${index + 1}`} disabled={sectionTotal <= 1} onClick={() => remove(index)}><Icon name="close" /></button>
+            <button className="icon-button" type="button" aria-label={`Rimuovi sezione ${index + 1}`} title={`Rimuovi sezione ${index + 1}`} disabled={sectionTotal <= 1} onClick={() => removeSections([index])}><Icon name="close" /></button>
           </div>
         </div>
         <div className="section-type-grid" role="group" aria-label={`Tipo della sezione ${index + 1}`}>
