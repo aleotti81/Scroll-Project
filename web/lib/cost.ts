@@ -17,5 +17,9 @@ export function totalCost(sections: Section[]) {
 }
 
 export function formatCost(value: number) {
-  return `$${value.toFixed(2)}`;
+  return new Intl.NumberFormat("it-IT", {
+    style: "currency",
+    currency: "USD",
+    currencyDisplay: "narrowSymbol",
+  }).format(value);
 }

@@ -127,29 +127,40 @@ export const projectFieldsObjectSchema = z.object({
   languages: z.array(languageSchema).min(1, "Seleziona almeno una lingua."),
 });
 
-export const projectFieldsSchema = projectFieldsObjectSchema.superRefine((brand, context) => {
+function refineBrandFields(
+  brand: z.infer<typeof projectFieldsObjectSchema>,
+  context: z.RefinementCtx,
+  pathPrefix: string[],
+) {
   const { url, replicateContent, copyStyle } = brand.existingSite;
-  if ((replicateContent || copyStyle) && !z.string().url().safeParse(url).success) {
+  const validUrl = z.string().url().safeParse(url).success;
+  if (!validUrl && (url.length > 0 || replicateContent || copyStyle)) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
-      path: ["existingSite", "url"],
-      message: "Inserisci un URL valido se attivi una delle opzioni.",
+      path: [...pathPrefix, "existingSite", "url"],
+      message: replicateContent || copyStyle
+        ? "Inserisci un URL valido se attivi una delle opzioni."
+        : "Inserisci un URL valido.",
     });
   }
   if (!replicateContent && !brand.name.trim()) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
-      path: ["name"],
+      path: [...pathPrefix, "name"],
       message: "Inserisci il nome della struttura.",
     });
   }
   if (!replicateContent && !brand.mission.trim()) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
-      path: ["mission"],
+      path: [...pathPrefix, "mission"],
       message: "La missione è obbligatoria se non replichi i contenuti.",
     });
   }
+}
+
+export const projectFieldsSchema = projectFieldsObjectSchema.superRefine((brand, context) => {
+  refineBrandFields(brand, context, []);
 });
 
 export const contactFieldsSchema = z.object({
@@ -212,28 +223,7 @@ export const configuratorSchema = z
     sections: sectionsSchema,
   })
   .superRefine((data, context) => {
-    const { url, replicateContent, copyStyle } = data.brand.existingSite;
-    if ((replicateContent || copyStyle) && !z.string().url().safeParse(url).success) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["brand", "existingSite", "url"],
-        message: "Inserisci un URL valido se attivi una delle opzioni.",
-      });
-    }
-    if (!replicateContent && !data.brand.name.trim()) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["brand", "name"],
-        message: "Inserisci il nome della struttura.",
-      });
-    }
-    if (!replicateContent && !data.brand.mission.trim()) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["brand", "mission"],
-        message: "La missione è obbligatoria se non replichi i contenuti.",
-      });
-    }
+    refineBrandFields(data.brand, context, ["brand"]);
     if (!data.brand.existingSite.replicateContent && !data.brand.seo.primaryKeyword.trim()) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
