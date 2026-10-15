@@ -1,0 +1,117 @@
+<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Happy Tuscany – Mappa interattiva</title>
+<style>
+@font-face{font-family:'Architects Daughter';font-display:swap;src:url(assets/fonts/KtkxAKiDZI_td1Lkx62xHZHDtgO_Y-bvTYlg4w.woff2) format('woff2')}
+@font-face{font-family:'Schoolbell';font-display:swap;src:url(assets/fonts/92zQtBZWOrcgoe-fgnJIZxUa6w.woff2) format('woff2')}
+@font-face{font-family:'Sail';font-display:swap;src:url(assets/fonts/DPEjYwiBxwYJJBPJAQ.woff2) format('woff2')}
+@font-face{font-family:'adventure-tours';font-display:block;src:url(assets/fonts/adventure-tours.woff) format('woff')}
+@font-face{font-family:'FontAwesome';font-display:block;src:url(assets/fonts/fontawesome-webfont.woff2) format('woff2')}
+*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:#e6dcc0;font-family:'Architects Daughter',cursive;color:#333}
+header{position:fixed;top:0;left:0;right:0;height:64px;background:#0a0808;display:flex;align-items:center;gap:14px;padding:0 20px;z-index:5}
+header img{height:46px}header h1{margin:0;font:400 22px Schoolbell;color:#fff;text-transform:uppercase;letter-spacing:.5px}
+header h1 span{color:#758d15}
+#back{margin-left:auto;display:none;background:#758d15;color:#fff;border:0;border-radius:3px;font:400 17px Schoolbell;text-transform:uppercase;padding:8px 14px;cursor:pointer}
+#back:hover{background:#7ad03a}
+#map{position:fixed;top:64px;left:0;width:100%;height:calc(100% - 64px);display:block;touch-action:none;cursor:grab}
+.roads path{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.tracks path{fill:none;stroke:#b8a578;stroke-width:1.6;stroke-dasharray:4 3}
+.water path{fill:none;stroke:#7fb3c9}
+.r1{fill:none;stroke:#4a4440;stroke-width:5}.r2{fill:none;stroke:#f4ecd6;stroke-width:2.4;stroke-dasharray:9 9}
+.b{fill:#c98a63;stroke:#8e5537;stroke-width:.8}.hb{fill:#d0663a;stroke:#6e2f14;stroke-width:1.4}
+.lbl{font-family:Schoolbell;fill:#3e3e3e;paint-order:stroke;stroke:#f1ead3;stroke-width:4px;stroke-linejoin:round}
+.town text{font:400 15px Schoolbell;fill:#3e3e3e;paint-order:stroke;stroke:#f1ead3;stroke-width:4px}
+.pin{cursor:pointer;transition:opacity .4s}.pin .c{fill:#758d15}.pin .ring{fill:none;stroke:rgba(255,255,255,.6);stroke-width:1.5;stroke-dasharray:2 2.5}
+.pin .pulse{fill:#758d15;opacity:.5;animation:pl 2s ease-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes pl{0%{transform:scale(1);opacity:.55}100%{transform:scale(2.3);opacity:0}}
+.pin .ic{fill:#fff;font-size:20px;text-anchor:middle}.pin .ic.fa{font-family:FontAwesome}.pin .ic.td{font-family:adventure-tours}
+.pin .lb{font:400 18px Schoolbell;text-anchor:middle;fill:#222;paint-order:stroke;stroke:#fff;stroke-width:4px;opacity:0;transition:opacity .2s}
+.pin:hover .lb,.pin.sel .lb{opacity:1}.pin:hover .c,.pin.sel .c{fill:#7ad03a}
+.pin.off{opacity:0;pointer-events:none}
+#panel{position:fixed;top:80px;right:16px;width:360px;max-height:calc(100% - 96px);overflow:auto;background:#fff;border-radius:4px;box-shadow:0 10px 30px rgba(0,0,0,.25);padding:20px;z-index:6;transform:translateX(420px);transition:transform .45s cubic-bezier(.2,.8,.2,1)}
+#panel.on{transform:none}#panel h2{margin:0 30px 8px 0;font:400 26px/1.2 Schoolbell;text-transform:uppercase;color:#758d15}
+#panel p{margin:0 0 14px;font-size:17px;line-height:1.6}#panel .x{position:absolute;top:10px;right:12px;border:0;background:none;font:400 26px Schoolbell;cursor:pointer;color:#9a9a9a}
+#gal{position:relative;aspect-ratio:4/3;background:#eee;border-radius:3px;overflow:hidden;margin-bottom:14px}#gal:empty{display:none}
+#gal img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .8s}#gal img.on{opacity:1}
+.btn{display:inline-block;background:#758d15;color:#fff;border:0;border-radius:3px;font:400 18px Schoolbell;text-transform:uppercase;padding:10px 16px;cursor:pointer;margin:0 8px 8px 0}.btn:hover{background:#7ad03a}
+#legend{position:fixed;left:16px;bottom:16px;background:rgba(255,255,255,.88);border-radius:4px;padding:10px 14px;font-size:14px;line-height:1.7;z-index:4}
+#legend i{display:inline-block;width:22px;height:8px;margin-right:8px;vertical-align:middle;border-radius:2px}
+#scene{position:fixed;inset:0;background:#000;z-index:10;display:none}#scene.on{display:block}
+#scroller{position:absolute;inset:0;overflow-y:auto}#scroller .tall{height:500vh}
+#stick{position:fixed;inset:0;pointer-events:none}#stick video{width:100%;height:100%;object-fit:cover}
+#cap{position:fixed;left:6vw;bottom:12vh;color:#fff;font:400 clamp(26px,4vw,52px)/1.2 Schoolbell;text-transform:uppercase;text-shadow:0 2px 12px rgba(0,0,0,.6);max-width:80vw;transition:opacity .5s}
+#cap small{display:block;font:400 clamp(16px,1.8vw,22px)/1.5 'Architects Daughter';text-transform:none}
+#close{position:fixed;top:16px;right:16px;z-index:11}#bar{position:fixed;left:0;bottom:0;height:4px;background:#758d15;width:0}
+@media (max-width:700px){header h1{font-size:17px}#panel{left:8px;right:8px;width:auto;top:auto;bottom:8px;max-height:60%;transform:translateY(110%)}#legend{display:none}}
+</style></head><body>
+<header><img src="assets/img/png_trns_logo.png" alt="Happy Tuscany"><h1>Mappa <span>interattiva</span></h1><button id="back">← Mappa generale</button></header>
+<svg id="map" viewBox="0 0 %W% %H%" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+<defs><radialGradient id="pg" cx="55%" cy="45%" r="75%"><stop offset="0" stop-color="#f1ead3"/><stop offset="1" stop-color="#ddd1ad"/></radialGradient>
+<path id="pcroce" d="%CROCE%"/><path id="ptrunk" d="%TRUNK%"/></defs>
+<g id="world">
+<rect x="-2000" y="-2000" width="6000" height="6000" fill="#ddd1ad"/><rect width="%W%" height="%H%" fill="url(#pg)"/>
+<g class="water">%WATER%</g>%VEGSHADOW%%OLIVE%%FOREST%
+<g class="tracks">%TRACKS%</g><g class="roads">%CASING%%FILL%</g>%RAIL%
+<path d="%CROCE%" fill="none" stroke="#758d15" stroke-width="2.2" stroke-dasharray="1 5" stroke-linecap="round"/>
+<g>%BLD%</g>%PROP%
+<text class="lbl" font-size="15"><textPath href="#pcroce" startOffset="22%">Via della Croce</textPath></text>
+<text class="lbl" font-size="15"><textPath href="#ptrunk" startOffset="35%">Raccordo Siena – Bettolle</textPath></text>
+<text class="lbl" font-size="30" transform="translate(%LBORGO%)" x="40" y="40">Rigomagno</text>
+<g transform="translate(1520,110)"><circle r="34" fill="rgba(255,255,255,.6)" stroke="#758d15"/><path d="M0,-28 L8,0 L0,28 L-8,0Z" fill="#758d15"/><path d="M0,0 L8,0 L0,28Z" fill="#3e3e3e"/><text class="lbl" y="-38" text-anchor="middle" font-size="18">N</text></g>
+%ARROWS%
+</g>
+<g id="pins">%PINS%</g>
+</svg>
+<div id="legend"><div><i style="background:#56722f"></i>Bosco</div><div><i style="background:#8f9c62;height:8px;width:8px;border-radius:50%"></i>Uliveti</div><div><i style="background:#4a4440"></i>Ferrovia Siena – Chiusi</div><div><i style="background:#d0663a"></i>Happy Tuscany</div><div style="color:#9a9a9a;font-size:12px">Dati: © OpenStreetMap · posizioni in proprietà indicative</div></div>
+<aside id="panel"><button class="x" aria-label="Chiudi">×</button><h2 id="pt"></h2><div id="gal"></div><p id="pp"></p><div id="pb"></div></aside>
+<div id="scene"><div id="stick"><video id="v" muted playsinline preload="auto" poster="assets/video/poster.jpg"></video></div>
+<div id="cap"></div><div id="bar"></div><div id="scroller"><div class="tall"></div></div><button class="btn" id="close">× Esci</button></div>
+<script>
+const D=%DATA%,PROP=%PROPBOX%,W=%W%,H=%H%;
+const svg=document.getElementById('map'),world=document.getElementById('world'),pinEls=[...document.querySelectorAll('.pin')];
+let vb=[0,0,W,H],anim=null;
+function apply(){svg.setAttribute('viewBox',vb.join(' '));const k=vb[2]/W,zoomed=k<.4;
+ pinEls.forEach(p=>{p.setAttribute('transform',`translate(${p.dataset.x},${p.dataset.y}) scale(${k*(innerWidth<700?1.5:1)})`);
+  const o=p.classList.contains('o'),pid=p.dataset.id;p.classList.toggle('off',zoomed?(o&&pid!=='casa')||pid==='casa':!o)});
+ document.getElementById('back').style.display=zoomed?'block':'none'}
+function zoomTo(t,ms=1400){const f=vb.slice(),t0=performance.now();cancelAnimationFrame(anim);
+ const step=n=>{let u=Math.min(1,(n-t0)/ms);u=u<.5?4*u*u*u:1-Math.pow(-2*u+2,3)/2;
+  const lf=Math.log(f[2]),lt=Math.log(t[2]),w=Math.exp(lf+(lt-lf)*u),h=w*H/W,cx=f[0]+f[2]/2+(t[0]+t[2]/2-f[0]-f[2]/2)*u,cy=f[1]+f[3]/2+(t[1]+t[3]/2-f[1]-f[3]/2)*u;
+  vb=[cx-w/2,cy-h/2,w,h];apply();if(u<1)anim=requestAnimationFrame(step)};anim=requestAnimationFrame(step)}
+function prop(){zoomTo([PROP[0],PROP[1]+PROP[3]/2-PROP[2]*H/W/2,PROP[2],PROP[2]*H/W])}
+document.getElementById('back').onclick=()=>{closeP();zoomTo([0,0,W,H])};
+let galT=null;const panel=document.getElementById('panel');
+function openP(id){const d=D[id];pinEls.forEach(p=>p.classList.toggle('sel',p.dataset.id===id));
+ document.getElementById('pt').textContent=d.t;document.getElementById('pp').textContent=d.txt;
+ const g=document.getElementById('gal');g.innerHTML='';clearInterval(galT);
+ d.imgs.forEach((n,i)=>{const im=new Image();im.src='assets/img/'+n+'.webp';im.alt=d.t;if(!i)im.className='on';g.appendChild(im)});
+ if(d.imgs.length>1){let k=0;galT=setInterval(()=>{const a=g.querySelectorAll('img');a[k].classList.remove('on');k=(k+1)%a.length;a[k].classList.add('on')},3000)}
+ const b=document.getElementById('pb');b.innerHTML='';
+ if(d.zoom){const x=document.createElement('button');x.className='btn';x.textContent='Entra nella proprietà';x.onclick=()=>{closeP();prop()};b.appendChild(x)}
+ if(d.video){const x=document.createElement('button');x.className='btn';x.textContent='▶ Entra nella scena';x.onclick=openScene;b.appendChild(x)}
+ panel.classList.add('on')}
+function closeP(){panel.classList.remove('on');pinEls.forEach(p=>p.classList.remove('sel'))}
+panel.querySelector('.x').onclick=closeP;
+pinEls.forEach(p=>p.addEventListener('click',e=>{e.stopPropagation();if(lastMoved<6)openP(p.dataset.id)}));
+// pan & zoom
+let drag=null;let lastMoved=0;svg.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,vb:vb.slice(),moved:0,id:e.pointerId,cap:0}});
+svg.addEventListener('pointermove',e=>{if(!drag)return;const dx=(e.clientX-drag.x),dy=(e.clientY-drag.y);drag.moved=Math.abs(dx)+Math.abs(dy);if(drag.moved<6)return;if(!drag.cap){drag.cap=1;svg.setPointerCapture(drag.id);cancelAnimationFrame(anim)}
+ const sc=Math.max(vb[2]/svg.clientWidth,vb[3]/svg.clientHeight);vb=[drag.vb[0]-dx*sc,drag.vb[1]-dy*sc,vb[2],vb[3]];apply()});
+svg.addEventListener('pointerup',()=>{lastMoved=drag?drag.moved:0;drag=null});
+svg.addEventListener('wheel',e=>{e.preventDefault();cancelAnimationFrame(anim);const f=Math.exp(e.deltaY*.0015),w=Math.min(W*1.2,Math.max(W*.05,vb[2]*f)),h=w*H/W;
+ const r=svg.getBoundingClientRect(),sc=Math.max(vb[2]/r.width,vb[3]/r.height),mx=vb[0]+vb[2]/2+(e.clientX-r.left-r.width/2)*sc,my=vb[1]+vb[3]/2+(e.clientY-r.top-r.height/2)*sc;
+ vb=[mx-(mx-vb[0])*w/vb[2],my-(my-vb[1])*h/vb[3],w,h];apply()},{passive:false});
+apply();
+// scena video scroll-driven
+const scene=document.getElementById('scene'),sc=document.getElementById('scroller'),v=document.getElementById('v'),cap=document.getElementById('cap'),bar=document.getElementById('bar');
+const CAPS=[[0,.3,'Piscina panoramica','Dal deck in legno, tra gli ulivi'],[.35,.7,'Vista aperta','sulle colline della Valdichiana'],[.75,1.01,'Happy Tuscany','Vieni come ospite, riparti come amico.']];
+let loaded=false,ready=false,shown=0,run=false;
+function openScene(){scene.classList.add('on');sc.scrollTop=0;shown=0;run=true;
+ if(!loaded){loaded=true;const src=matchMedia('(max-aspect-ratio: 1/1)').matches?'assets/video/clip01_mobile.mp4':'assets/video/clip01_desktop.mp4';
+  fetch(src).then(r=>r.blob()).then(b=>{v.src=URL.createObjectURL(b);v.addEventListener('loadeddata',()=>{ready=true;v.currentTime=0},{once:true})})}
+ requestAnimationFrame(loop)}
+document.getElementById('close').onclick=()=>{scene.classList.remove('on');run=false};
+function loop(){if(!run)return;const p=Math.min(1,sc.scrollTop/(sc.scrollHeight-sc.clientHeight||1));bar.style.width=p*100+'%';
+ const c=CAPS.find(c=>p>=c[0]&&p<c[1]);cap.innerHTML=c?c[2]+'<small>'+c[3]+'</small>':'';
+ if(ready&&v.duration){shown+=(p*(v.duration-.05)-shown)*.25;if(Math.abs(v.currentTime-shown)>.01&&!v.seeking)v.currentTime=shown}
+ requestAnimationFrame(loop)}
+</script></body></html>

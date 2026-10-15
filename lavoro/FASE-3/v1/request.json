@@ -1,0 +1,24 @@
+{
+ "endpoint": "fal-ai/bytedance/seedance/v1.5/pro/image-to-video",
+ "request": {
+  "status": "IN_QUEUE",
+  "request_id": "01a13f08-7a13-7d60-ba4c-e73bd7699741",
+  "response_url": "https://queue.fal.run/fal-ai/bytedance/requests/01a13f08-7a13-7d60-ba4c-e73bd7699741",
+  "status_url": "https://queue.fal.run/fal-ai/bytedance/requests/01a13f08-7a13-7d60-ba4c-e73bd7699741/status",
+  "cancel_url": "https://queue.fal.run/fal-ai/bytedance/requests/01a13f08-7a13-7d60-ba4c-e73bd7699741/cancel",
+  "logs": null,
+  "metrics": {},
+  "queue_position": 0,
+  "user_queue_position": 0,
+  "user_queued_count": 1
+ },
+ "params": {
+  "prompt": "Smooth, slow cinematic gimbal dolly shot gliding forward across a sunny wooden pool deck in the Tuscan countryside, gently panning right toward the pool edge with two spritz glasses, revealing the panoramic view of olive trees and the Valdichiana hills. Constant speed, steady camera, no cuts, realistic, natural light, architecture and objects stay rigid and stable.",
+  "duration": "5",
+  "resolution": "1080p",
+  "aspect_ratio": "16:9",
+  "generate_audio": false,
+  "camera_fixed": false,
+  "seed": 42
+ }
+}

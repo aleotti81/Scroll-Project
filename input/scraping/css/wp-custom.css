@@ -1,0 +1,28 @@
+
+.header-section--with-banner {
+  position: relative; 
+  overflow: hidden;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0;
+  padding: 0;
+}
+
+/* 2) Estendiamo la parallax-image su tutta l&#8217;area del header */
+.header-section--with-banner .parallax-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100% !important;
+  height: 100% !important;
+  background-size: cover !important;
+  background-position: center center !important;
+}
+
+
+.woocommerce-info, 
+.woocommerce-notices-wrapper .woocommerce-message {
+  display: none !important;
+}
+
+

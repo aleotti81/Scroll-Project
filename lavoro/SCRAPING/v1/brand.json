@@ -1,0 +1,42 @@
+{
+  "fonte": "https://www.happytuscany.it/ (+ /servizi/), scraping 2026-10-15, tema WordPress 'Adventure Tours' + WPBakery",
+  "struttura": {
+    "nome": "Happy Tuscany", "tipo": "Casa vacanze (country house)",
+    "slogan": "Vieni come ospite, riparti come amico.",
+    "indirizzo": "Via della Croce 200, Rigomagno (SI)", "zona": "Valdichiana, Toscana",
+    "telefono": "+39 3515710979", "whatsapp": "00393515710979", "email": "Info@happytuscany.it",
+    "cin": "IT052033C2A7DTTNM9", "lingue_sito": ["it","en","es","pt","ja"],
+    "prenotazione": "nessun motore di prenotazione: contatto telefono/WhatsApp/email (WooCommerce presente ma non usato)"
+  },
+  "font": {
+    "testo_e_titoli": {"family": "Architects Daughter", "fonte": "Google Fonts", "peso": 400, "body": "20px / 1.8em", "h1_banner": "56px (2.8em), text-shadow 0 2px 2px rgba(0,0,0,.2)", "h3_sezioni": "23.4px uppercase centrato"},
+    "menu_bottoni_titoli_grandi": {"family": "Schoolbell", "fonte": "Google Fonts", "peso": 400, "menu": "20px uppercase", "title_primary": "48px uppercase, line-height 1.333em", "bottone": "20px uppercase, line-height 3em, padding 0 2em, radius 3px"},
+    "logo_tipografico": {"family": "Sail", "fonte": "Google Fonts"},
+    "icone": ["adventure-tours (icon font del tema, .woff)", "FontAwesome 4.7"]
+  },
+  "colori": {
+    "primario_verde_oliva": "#758d15", "accento_hover_link": "#7ad03a",
+    "testo": "#333333", "testo_secondario_descrizioni": "#9a9a9a",
+    "sfondo_pagina": "#f6f6f6", "sfondo_blocchi": "#ffffff",
+    "header": "#0a0808", "footer_sfondo": "#e0dcd3", "footer_testo": "#3e3e3e",
+    "maschera_banner": "rgba(0,0,0,.3)", "bordi": "#e9e9e9"
+  },
+  "componenti": {
+    "header": "nero #0a0808, logomark a sinistra, menu Schoolbell bianco uppercase, voce attiva con barretta verde 30x5px",
+    "banner": "foto a tutta larghezza, maschera nera 30%, titolo centrato bianco",
+    "sezioni": "griglia 2 colonne alternate foto-slider / testo, contenitore ~1140px, parole chiave in grassetto",
+    "icons_set": "cerchio 66px #758d15 con anello tratteggiato bianco 56px, glifo bianco 1.667em, titolo 22px, descrizione #9a9a9a line-height 1.6em",
+    "footer": "#e0dcd3, titoli widget bianchi uppercase 24px, contatti con icone FA in cerchio scuro, riga copyright 0.867em, freccia torna-su cerchiata",
+    "whatsapp": "bottone flottante Chaty verde in basso a destra"
+  },
+  "icone_mappate": {
+    "Posizione panoramica": "td-photo-landscape \\e0ab", "Piscina & Jacuzzi": "td-lounge-chair \\e109",
+    "Barbecue": "td-sausage-2 \\e063", "Musica e karaoke": "fa-music \\f001",
+    "Posizione strategica": "td-marker-location-1 \\e0a2", "Comfort": "td-heart M",
+    "Noleggio Biancheria": "td-browser \\e001", "Late check-in": "td-24-hours a", "Culla gratuita": "fa-bed \\f236",
+    "Wi-Fi Gratuito": "fa-wifi \\f1eb", "Caffè e tè": "td-coffee ;", "Comfort garantito": "td-snow \\e054"
+  },
+  "sezioni_home": ["Banner HAPPY TUSCANY", "Intro", "Gli spazi esterni", "Le stanze", "Il salone", "La cucina", "Cosa offre la casa (6 icone)", "Footer Chi siamo / Contattaci"],
+  "sezioni_servizi": ["Zona barbecue", "Piscina panoramica", "Asado", "Idromassaggio con vista", "Smart working & piano", "I nostri servizi (6 icone)"],
+  "asset": {"foto": 40, "duplicati_rimossi": 3, "font": 7, "logo": ["png_trns_logo.png", "png_trns_logomark.png"], "css_originali": "input/scraping/css/"}
+}

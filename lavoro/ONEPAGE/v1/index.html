@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Happy Tuscany — Casa vacanze a Rigomagno, Valdichiana</title>
+<meta name="description" content="Casa vacanze con piscina panoramica, jacuzzi e barbecue tra le colline della Valdichiana, a Rigomagno (SI).">
+<link rel="preload" as="image" href="assets/video/poster.jpg">
+<link rel="preload" as="font" type="font/woff2" href="assets/fonts/KtkxAKiDZI_td1Lkx62xHZHDtgO_Y-bvTYlg4w.woff2" crossorigin>
+<style>
+@font-face{font-family:'Architects Daughter';font-display:swap;src:url(assets/fonts/KtkxAKiDZI_td1Lkx62xHZHDtgO_Y-bvTYlg4w.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:'Architects Daughter';font-display:swap;src:url(assets/fonts/KtkxAKiDZI_td1Lkx62xHZHDtgO_Y-bvTYdg4_zg.woff2) format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+1E00-1E9F,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113}
+@font-face{font-family:'Schoolbell';font-display:swap;src:url(assets/fonts/92zQtBZWOrcgoe-fgnJIZxUa6w.woff2) format('woff2')}
+@font-face{font-family:'Sail';font-display:swap;src:url(assets/fonts/DPEjYwiBxwYJJBPJAQ.woff2) format('woff2')}
+@font-face{font-family:'adventure-tours';font-display:block;src:url(assets/fonts/adventure-tours.woff) format('woff')}
+@font-face{font-family:'FontAwesome';font-display:block;src:url(assets/fonts/fontawesome-webfont.woff2) format('woff2')}
+:root{--verde:#758d15;--accento:#7ad03a;--testo:#333;--grigio:#9a9a9a;--pagina:#f6f6f6;--header:#0a0808;--footer:#e0dcd3;--footer-testo:#3e3e3e;--w:1140px}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:auto}
+body{background:var(--pagina);color:var(--testo);font:400 20px/1.8em 'Architects Daughter',cursive;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'Architects Daughter';font-weight:400}
+a{color:inherit;text-decoration:none}
+b,strong{font-weight:700}
+.wrap{max-width:var(--w);margin:0 auto;padding:0 15px}
+.ic{font-family:'adventure-tours';font-style:normal;line-height:1;speak:none}
+.fa{font-family:'FontAwesome';font-style:normal;line-height:1}
+/* header */
+.header{position:fixed;top:0;left:0;right:0;z-index:50;background:rgba(10,8,8,.0);color:#fff;transition:background .4s}
+.header.solid{background:var(--header)}
+.header .wrap{display:flex;align-items:center;justify-content:space-between;height:80px}
+.logo{display:flex;align-items:center;gap:12px;font-family:'Sail';font-size:28px;line-height:1}
+.logo img{width:58px;height:58px;object-fit:contain;filter:brightness(0) invert(1)}
+.nav{display:flex;gap:30px;font-family:Schoolbell;text-transform:uppercase;font-size:20px}
+.nav a{position:relative;opacity:.9}.nav a:hover{opacity:1}
+.nav a.on:after{content:"";position:absolute;left:50%;bottom:-8px;width:30px;height:5px;background:var(--verde);transform:translateX(-50%)}
+.phone{font-size:16px;opacity:.75}.phone .fa{margin-right:6px}
+/* scena scroll */
+.scene{position:relative;height:420vh;background:#000}
+.sticky{position:sticky;top:0;height:100vh;overflow:hidden}
+.sticky img,.sticky video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.sticky video{z-index:1}
+.mask{position:absolute;inset:0;z-index:2;background:#000;opacity:.3;transition:opacity .3s}
+.cap{position:absolute;z-index:3;left:0;right:0;text-align:center;color:#fff;padding:0 6vw;opacity:0;transform:translateY(24px);transition:opacity .6s,transform .6s;text-shadow:0 2px 2px rgba(0,0,0,.2)}
+.cap.on{opacity:1;transform:none}
+.cap h1{font-size:clamp(36px,5.6vw,72px);line-height:1.15;letter-spacing:.02em}
+.cap .slogan{font-family:Schoolbell;font-size:clamp(18px,2vw,26px);margin-top:10px}
+.cap h2{font-family:Schoolbell;text-transform:uppercase;font-size:clamp(28px,4vw,48px);line-height:1.333}
+.cap p{max-width:640px;margin:10px auto 0;font-size:clamp(17px,1.5vw,21px)}
+.c1{top:38vh}.c2{top:58vh}.c3{top:58vh}
+.hint{position:absolute;z-index:3;bottom:28px;left:50%;transform:translateX(-50%);color:#fff;font-family:Schoolbell;font-size:16px;opacity:.85;transition:opacity .4s;text-align:center}
+.hint .fa{display:block;font-size:18px;margin-top:4px;animation:b 1.6s infinite}
+@keyframes b{50%{transform:translateY(6px)}}
+.bar{position:absolute;z-index:4;left:0;bottom:0;height:4px;background:var(--verde);width:0}
+/* contenuti */
+section.block{padding:80px 0}
+.intro p{margin-bottom:1em}
+.title{font-family:Schoolbell;text-transform:uppercase;font-size:48px;line-height:1.333;text-align:center;margin-bottom:50px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:30px;align-items:center;margin-bottom:70px}
+.row.rev .media{order:2}
+.row h3{text-transform:uppercase;font-size:23.4px;text-align:center;margin-bottom:20px}
+.media{position:relative;aspect-ratio:3/2;overflow:hidden;background:#ddd}
+.media img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 1s}
+.media img.on{opacity:1}
+.dots{position:absolute;bottom:10px;left:0;right:0;display:flex;justify-content:center;gap:7px;z-index:2}
+.dots i{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.6);box-shadow:0 0 2px rgba(0,0,0,.4)}
+.dots i.on{background:#fff}
+.reveal{opacity:0;transform:translateY(40px);transition:opacity .9s,transform .9s}
+.reveal.in{opacity:1;transform:none}
+.white{background:#fff}
+.icons{display:grid;grid-template-columns:repeat(3,1fr);gap:40px 30px}
+.icon-item{display:flex;gap:16px}
+.icon-wrap{flex:0 0 66px;width:66px;height:66px;border-radius:50%;background:var(--verde);color:#fff;position:relative;display:flex;align-items:center;justify-content:center;font-size:33px}
+.icon-wrap:before{content:"";position:absolute;width:56px;height:56px;border:2px dotted rgba(255,255,255,.5);border-radius:50%}
+.icon-item h4{font-family:'Architects Daughter';font-weight:400;font-size:22px;line-height:1.4;margin:6px 0 8px}
+.icon-item p{color:var(--grigio);line-height:1.6em;font-size:18px}
+.cta{display:inline-block;font-family:Schoolbell;text-transform:uppercase;font-size:20px;line-height:3em;padding:0 2em;border-radius:3px;background:var(--verde);color:#fff}
+.cta:hover{background:var(--accento)}
+.cta.ghost{background:transparent;color:var(--testo);border:2px solid rgba(117,141,21,.8);line-height:2.733em}
+.center{text-align:center}
+/* footer */
+footer{background:var(--footer);color:var(--footer-testo);padding:60px 0 0}
+footer .cols{display:grid;grid-template-columns:1fr 1fr;gap:40px}
+footer h3{color:#fff;text-transform:uppercase;font-size:24px;opacity:.9;margin-bottom:25px}
+.ci{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.ci .fa{width:28px;height:28px;border-radius:50%;background:var(--footer-testo);color:var(--footer);display:flex;align-items:center;justify-content:center;font-size:15px}
+.fbottom{margin-top:40px;border-top:1px solid rgba(62,62,62,.3);padding:18px 0;font-size:.867em;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.wa{position:fixed;right:20px;bottom:20px;z-index:60;width:56px;height:56px;border-radius:50%;background:#25d366;color:#fff;display:flex;align-items:center;justify-content:center;font-size:30px;box-shadow:0 3px 10px rgba(0,0,0,.25)}
+@media (max-width:900px){
+  body{font-size:18px}.nav,.phone{display:none}
+  .row{grid-template-columns:1fr}.row.rev .media{order:0}
+  .icons{grid-template-columns:1fr}.title{font-size:34px}
+  footer .cols{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){.sticky video{display:none}.scene{height:100vh}.reveal{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<header class="header" id="hdr">
+  <div class="wrap">
+    <a class="logo" href="#top"><img src="assets/img/png_trns_logomark.png" alt="Happy Tuscany">happy tuscany</a>
+    <nav class="nav"><a href="#casa" class="on">La casa</a><a href="#servizi">Servizi</a><a href="#contatti">Contatti</a></nav>
+    <a class="phone" href="tel:+393515710979"><span class="fa">&#xf095;</span>+39 351 571 0979</a>
+  </div>
+</header>
+
+<section class="scene" id="top">
+  <div class="sticky">
+    <img src="assets/video/poster.jpg" alt="Deck in legno e piscina panoramica di Happy Tuscany">
+    <video id="v" muted playsinline preload="auto" poster="assets/video/poster.jpg"></video>
+    <div class="mask" id="mask"></div>
+    <div class="cap c1" data-a="0" data-b=".28"><h1>HAPPY TUSCANY</h1><div class="slogan">Vieni come ospite, riparti come amico.</div></div>
+    <div class="cap c2" data-a=".34" data-b=".66"><h2>La vostra oasi di pace</h2><p>Immersa nelle dolci colline toscane, dove il tempo rallenta.</p></div>
+    <div class="cap c3" data-a=".72" data-b="1.01"><h2>Piscina panoramica</h2><p>Tra gli ulivi, con deck in legno e vista aperta sulla Valdichiana.</p></div>
+    <div class="hint" id="hint">Scorri<span class="fa">&#xf078;</span></div>
+    <div class="bar" id="bar"></div>
+  </div>
+</section>
+
+<section class="block intro" id="casa">
+  <div class="wrap reveal">
+    <p>Benvenuti a <b>Happy Tuscany</b>, la vostra <b>oasi di pace</b> immersa nelle dolci colline toscane. Un luogo dove il tempo rallenta, i profumi della natura si mescolano all'aroma del barbecue, e ogni alba si gode dalla terrazza oculatamente posizionata per offrire una vista mozzafiato.</p>
+    <p>La nostra <b>casa vacanza</b> è l'ideale per famiglie, coppie o piccoli gruppi che cercano <b>relax, comfort e spazi all'aperto per cene, feste ed eventi</b>.</p>
+  </div>
+</section>
+
+<section class="block" style="padding-top:0">
+  <div class="wrap">
+    <div class="row reveal">
+      <div class="media" data-imgs="WhatsApp-Image-2025-06-21-at-07.19.30-3,WhatsApp-Image-2025-06-06-at-15.11.05-1,WhatsApp-Image-2025-06-18-at-14.19.38,WhatsApp-Image-2025-06-21-at-07.19.31-1,WhatsApp-Image-2025-06-06-at-15.11.05"></div>
+      <div><h3>Gli spazi esterni</h3><p>Gli spazi esterni di <b>Happy Tuscany</b> offrono tutto il necessario per vivere la bellezza della campagna toscana in totale relax e convivialità. Una <b>piscina panoramica privata</b>, <b>terrazza attrezzata con vista mozzafiato</b>, <b>barbecue</b>, <b>amaca</b> e una grande zona dedicata a <b>cene all'aperto</b>, <b>musica, videoproiezioni e karaoke</b>.</p></div>
+    </div>
+    <div class="row rev reveal">
+      <div class="media" data-imgs="WhatsApp-Image-2025-05-09-at-00.14.07,WhatsApp-Image-2025-05-09-at-00.14.06-6,WhatsApp-Image-2025-05-09-at-00.14.05,WhatsApp-Image-2025-05-09-at-00.14.06-1,bagno-3-2,WhatsApp-Image-2025-05-09-at-00.14.06-3"></div>
+      <div><h3>Le stanze</h3><p><b>Happy Tuscany</b> dispone di tre camere: due matrimoniali con <b>bagno privato e aria condizionata</b>, di cui una con splendida <b>vista panoramica</b>; la terza con letti singoli unibili e bagno in corridoio. Nel salone, un grande <b>divano letto king size</b> è perfetto per bambini o coppie. <b>Culla disponibile gratuitamente su richiesta.</b></p></div>
+    </div>
+    <div class="row reveal">
+      <div class="media" data-imgs="Stufa-2,Stufa-1,Tavolone,WhatsApp-Image-2025-06-06-at-15.11.05-4,IMG_0431,WhatsApp-Image-2025-06-06-at-15.11.05-5"></div>
+      <div><h3>Il salone</h3><p>Il grande salone è il vero cuore della casa: <b>un ambiente caldo, accogliente e versatile</b>, con <b>due tavoloni in rovere</b> per ospitare comodamente <b>oltre 30 persone</b>. La <b>stufa a legna</b> crea un'atmosfera calda e familiare, mentre il <b>videoproiettore con maxi-schermo</b> trasforma ogni serata in un vero <b>effetto cinema</b>.</p></div>
+    </div>
+    <div class="row rev reveal">
+      <div class="media" data-imgs="WhatsApp-Image-2025-06-06-at-15.11.05-2-1,WhatsApp-Image-2025-06-06-at-15.11.05-3,f10d4557-1c6b-4b8c-83d6-b2b7b53fc02a"></div>
+      <div><h3>La cucina</h3><p>Una cucina spaziosa e raffinata, realizzata <b>su misura in rovere massello</b> con <b>piani in marmo</b> e una pratica <b>isola centrale</b>. Completamente attrezzata con <b>due frigoriferi, cucina a induzione, forno da 90 cm, lavastoviglie, microonde, macchina da caffè</b> e <b>boiler</b>, per accogliere anche gruppi numerosi.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="block white">
+  <div class="wrap">
+    <h2 class="title reveal">Cosa offre la casa</h2>
+    <div class="icons reveal">
+      <div class="icon-item"><div class="icon-wrap"><span class="ic">&#xe0ab;</span></div><div><h4>Posizione panoramica</h4><p>In posizione collinare, la casa offre una vista mozzafiato unica sul paesaggio toscano della Valdichiana.</p></div></div>
+      <div class="icon-item"><div class="icon-wrap"><span class="ic">&#xe109;</span></div><div><h4>Piscina &amp; Jacuzzi</h4><p>Jacuzzi all'aperto e piscina privata con vista sulle colline toscane per i momenti di relax.</p></div></div>
+      <div class="icon-item"><div class="icon-wrap"><span class="ic">&#xe063;</span></div><div><h4>Barbecue</h4><p>Barbecue in muratura spazioso e funzionale, perfetto per cene conviviali con amici e parenti.</p></div></div>
+      <div class="icon-item"><div class="icon-wrap"><span class="fa">&#xf001;</span></div><div><h4>Musica e karaoke</h4><p>Goditi una serata in completa privacy con musica e karaoke sotto le stelle!</p></div></div>
+      <div class="icon-item"><div class="icon-wrap"><span class="ic">&#xe0a2;</span></div><div><h4>Posizione strategica</h4><p>Per chi vuole esplorare la zona, siamo vicini ai principali punti d'interesse della Toscana.</p></div></div>
+      <div class="icon-item"><div class="icon-wrap"><span class="ic">M</span></div><div><h4>Comfort</h4><p>Goditi la cucina attrezzata, gli interni curati, la zona cinema, l'amaca, il Wi-Fi e l'aria condizionata.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="servizi">
+  <div class="wrap">
+    <h2 class="title reveal">Servizi</h2>
+    <div class="row reveal">
+      <div class="media" data-imgs="WhatsApp-Image-2025-06-21-at-07.19.31-4,WhatsApp-Image-2025-06-21-at-07.19.31-3,WhatsApp-Image-2025-06-21-at-07.19.27"></div>
+      <div><h3>Zona barbecue</h3><p>Un'ampia area barbecue in muratura, perfetta per <b>grigliate in compagnia</b> con amici e familiari, tra profumi di brace, <b>musica, karaoke, risate e cene sotto le stelle</b>.</p></div>
+    </div>
+    <div class="row rev reveal">
+      <div class="media" data-imgs="Cruz"></div>
+      <div><h3>Asado</h3><p>Su richiesta, organizziamo <b>asado in stile argentino</b> con griglia "estaca" per un'autentica esperienza conviviale intorno al fuoco, perfetta per eventi speciali o cene tra amici.</p></div>
+    </div>
+    <div class="row reveal">
+      <div class="media" data-imgs="b0a43d67-86dc-4e6f-a48c-304c055224b2"></div>
+      <div><h3>Idromassaggio con vista</h3><p>Concediti un momento di puro relax nell'<b>idromassaggio all'aperto</b>, affacciato sulle dolci colline toscane. La sera potrai goderti il calore dell'acqua <b>sotto un cielo stellato</b>.</p></div>
+    </div>
+    <div class="row rev reveal">
+      <div class="media" data-imgs="smartworking,Piano"></div>
+      <div><h3>Smart working &amp; piano</h3><p>Su richiesta, uno spazio dedicato allo <b>smart working</b>, con Wi-Fi veloce, buona illuminazione e tranquillità. Disponibile anche una <b>tastiera pesata</b> per una pausa creativa.</p></div>
+    </div>
+    <div class="icons reveal" style="margin-top:30px">
+      <div class="icon-item"><div class="icon-wrap"><span class="ic">&#xe001;</span></div><div><h4>Noleggio biancheria</h4><p>Lenzuola e asciugamani di qualità, sempre puliti e pronti all'uso.</p></div></div>
+      <div class="icon-item"><div class="icon-wrap"><span class="ic">a</span></div><div><h4>Late check-in</h4><p>Accesso flessibile anche nelle ore serali o notturne, con istruzioni personalizzate.</p></div></div>
+      <div class="icon-item"><div class="icon-wrap"><span class="fa">&#xf236;</span></div><div><h4>Culla gratuita</h4><p>Su richiesta, completa di materasso e lenzuola.</p></div></div>
+      <div class="icon-item"><div class="icon-wrap"><span class="fa">&#xf1eb;</span></div><div><h4>Wi-Fi gratuito</h4><p>Alta velocità 5G in tutti gli spazi interni ed esterni.</p></div></div>
+      <div class="icon-item"><div class="icon-wrap"><span class="ic">;</span></div><div><h4>Caffè e tè</h4><p>Macchina del caffè e boiler per acqua calda istantanea, h24.</p></div></div>
+      <div class="icon-item"><div class="icon-wrap"><span class="ic">&#xe054;</span></div><div><h4>Comfort garantito</h4><p>Aria condizionata in camere e salone, riscaldamento a pellet e legna.</p></div></div>
+    </div>
+    <div class="center reveal" style="margin-top:60px"><a class="cta" href="https://wa.me/393515710979">Chiedi disponibilità</a></div>
+  </div>
+</section>
+
+<footer id="contatti">
+  <div class="wrap">
+    <div class="cols">
+      <div><h3>Chi siamo</h3><p>Benvenuti a <b>Happy Tuscany</b>, la vostra casa vacanze immersa nel cuore della Toscana, a Rigomagno (SI).</p></div>
+      <div><h3>Contattaci</h3>
+        <div class="ci"><span class="fa">&#xf041;</span>VIA DELLA CROCE 200, Rigomagno (SI)</div>
+        <a class="ci" href="tel:+393515710979"><span class="fa">&#xf095;</span>+39 3515710979</a>
+        <a class="ci" href="mailto:Info@happytuscany.it"><span class="fa">&#xf0e0;</span>Info@happytuscany.it</a>
+      </div>
+    </div>
+    <div class="fbottom"><span>© 2025 Tutti i diritti riservati Happy Tuscany, CIN: IT052033C2A7DTTNM9</span><span>Terms &amp; Conditions · Cookies · Privacy Policy</span></div>
+  </div>
+</footer>
+<a class="wa" href="https://wa.me/393515710979" aria-label="WhatsApp"><span class="fa">&#xf232;</span></a>
+
+<script src="assets/lenis.min.js"></script>
+<script>
+const v=document.getElementById('v'),scene=document.getElementById('top'),bar=document.getElementById('bar'),hint=document.getElementById('hint'),hdr=document.getElementById('hdr'),mask=document.getElementById('mask');
+const src=matchMedia('(max-aspect-ratio: 1/1)').matches?'assets/video/clip01_mobile.mp4':'assets/video/clip01_desktop.mp4';
+let ready=false,shown=0;
+fetch(src).then(r=>r.blob()).then(b=>{v.src=URL.createObjectURL(b);v.addEventListener('loadeddata',()=>{ready=true;v.currentTime=0},{once:true})});
+const lenis=new Lenis({lerp:.08,smoothWheel:true});
+document.querySelectorAll('a[href^="#"]').forEach(a=>a.addEventListener('click',e=>{e.preventDefault();lenis.scrollTo(a.getAttribute('href')==='#top'?0:a.getAttribute('href'))}));
+const caps=[...document.querySelectorAll('.cap')];
+function prog(){const r=scene.getBoundingClientRect();return Math.min(1,Math.max(0,-r.top/(scene.offsetHeight-innerHeight)))}
+function raf(t){lenis.raf(t);const p=prog();
+  bar.style.width=p*100+'%';hint.style.opacity=p>.03?0:.85;mask.style.opacity=p<.28?.3:.15;
+  caps.forEach(c=>c.classList.toggle('on',p>=+c.dataset.a&&p<+c.dataset.b));
+  hdr.classList.toggle('solid',scrollY>scene.offsetHeight-innerHeight-80);
+  if(ready&&v.duration){shown+=(p*(v.duration-.05)-shown)*.25;if(Math.abs(v.currentTime-shown)>.01&&!v.seeking)v.currentTime=shown}
+  requestAnimationFrame(raf)}
+requestAnimationFrame(raf);
+document.querySelectorAll('.media').forEach(m=>{const l=m.dataset.imgs.split(',');
+  l.forEach((n,i)=>{const im=new Image();im.loading='lazy';im.decoding='async';im.alt='Happy Tuscany';im.src='assets/img/'+n+'.webp';if(!i)im.className='on';m.appendChild(im)});
+  if(l.length>1){const d=document.createElement('div');d.className='dots';l.forEach((_,i)=>{const x=document.createElement('i');if(!i)x.className='on';d.appendChild(x)});m.appendChild(d);
+    let k=0;setInterval(()=>{const ims=m.querySelectorAll('img'),ds=d.querySelectorAll('i');ims[k].classList.remove('on');ds[k].classList.remove('on');k=(k+1)%ims.length;ims[k].classList.add('on');ds[k].classList.add('on')},4000)}});
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}}),{threshold:.15});
+document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+</script>
+</body>
+</html>
