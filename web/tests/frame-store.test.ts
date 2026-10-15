@@ -9,8 +9,9 @@ import {
 describe("frame-store helpers", () => {
   it("calculates a bounded fps and falls back for invalid durations", () => {
     expect(extractionFps(2)).toBe(30);
-    expect(extractionFps(10)).toBe(15);
-    expect(extractionFps(200)).toBe(0.75);
+    expect(extractionFps(10)).toBe(30);
+    expect(extractionFps(20)).toBe(15);
+    expect(extractionFps(200)).toBe(1.5);
     expect(extractionFps(0)).toBe(30);
     expect(extractionFps(-1)).toBe(30);
     expect(extractionFps(Number.NaN)).toBe(30);
@@ -21,6 +22,7 @@ describe("frame-store helpers", () => {
     const id = frameSetId(Buffer.from("video"));
 
     expect(id).toMatch(/^[a-f0-9]{24}$/);
+    expect(id).toBe("e575d9cf4a769a4ed99d84ac");
     expect(frameSetId(Buffer.from("video"))).toBe(id);
     expect(isValidFrameSetId(id)).toBe(true);
     expect(isValidFrameSetId("../invalid")).toBe(false);

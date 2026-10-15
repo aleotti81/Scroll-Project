@@ -33,12 +33,12 @@ function runFile(
 }
 
 export function frameSetId(buffer: Buffer | Uint8Array): string {
-  return createHash("sha256").update(buffer).digest("hex").slice(0, 24);
+  return createHash("sha256").update("v2:").update(buffer).digest("hex").slice(0, 24);
 }
 
 export function extractionFps(durationSec: number): number {
   if (!Number.isFinite(durationSec) || durationSec <= 0) return 30;
-  return Math.min(30, 150 / durationSec);
+  return Math.min(30, 300 / durationSec);
 }
 
 export function isValidFrameSetId(id: string): boolean {
@@ -131,7 +131,7 @@ export function ensureFrames(id: string, inputPath: string): Promise<FrameManife
         inputPath,
         "-an",
         "-vf",
-        `fps=${fps},scale='min(1600,iw)':-2`,
+        `fps=${fps},scale='min(1280,iw)':-2`,
         "-q:v",
         "3",
         path.join(temporaryDirectory, "%04d.jpg"),
