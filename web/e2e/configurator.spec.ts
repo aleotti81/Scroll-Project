@@ -84,6 +84,12 @@ async function reloadWithStoredClip(
   return sectionId;
 }
 
+async function advanceToSections(page: Page) {
+  await page.getByRole("button", { name: "Avanti" }).click();
+  await page.getByRole("button", { name: "Avanti" }).click();
+  await page.getByRole("button", { name: "Avanti" }).click();
+}
+
 async function openSitePreview(page: Page) {
   await page.getByRole("button", { name: "Apri anteprima del sito" }).click();
   const preview = page.getByRole("dialog", { name: "Anteprima del sito" });
@@ -111,6 +117,47 @@ test("ripristina la bozza dopo aver ricaricato la pagina", async ({ page }) => {
   await page.reload();
   await expect(page.getByRole("status")).toContainText("Le foto/video vanno ricaricati");
   await expect(page.getByLabel("Nome della struttura o del progetto")).toHaveValue("La mia casa di prova");
+});
+
+test("accetta un secondo video dopo il ripristino del valore null", async ({ page }) => {
+  await page.goto("/crea");
+  await page.getByLabel("Nome della struttura o del progetto").fill("Casa delle colline");
+  await page.getByLabel("Missione").fill("Accogliere con cura e semplicità.");
+  await page.getByLabel("Valori e senso").fill("Natura, lentezza, ospitalità.");
+  await page.getByLabel("A chi ti rivolgi?").fill("Viaggiatori curiosi.");
+  await page.getByRole("button", { name: "Avanti" }).click();
+  await page.getByLabel("Keyword primaria").fill("casa vacanze in Toscana");
+  await page.getByLabel("Titolo SEO").fill("La casa tra le colline");
+  await page.getByRole("button", { name: "Avanti" }).click();
+  await page.getByRole("button", { name: "Avanti" }).click();
+
+  await page.getByRole("button", { name: "Sezione 1: Video → Testo finale" }).click();
+  await page.getByRole("region", { name: "Sezione 1" }).getByRole("button", { name: "Carica un video" }).click();
+  await expect.poll(() => page.evaluate(() => {
+    const draft = JSON.parse(localStorage.getItem("scroll-studio-configuratore-v1") ?? "null");
+    return { source: draft?.sections?.[0]?.media?.source, video: draft?.sections?.[0]?.media?.video };
+  })).toEqual({ source: "video", video: null });
+
+  await page.reload();
+  await expect(page.getByRole("status")).toContainText("Le foto/video vanno ricaricati");
+  await advanceToSections(page);
+  await expect.poll(() => page.evaluate(() => {
+    const draft = JSON.parse(localStorage.getItem("scroll-studio-configuratore-v1") ?? "null");
+    return { source: draft?.sections?.[0]?.media?.source, video: draft?.sections?.[0]?.media?.video };
+  })).toEqual({ source: "video", video: null });
+
+  const videoInput = page.locator("#sections-0-media-video");
+  await videoInput.setInputFiles(videoFixture);
+  await expect(page.locator(".file-name").filter({ hasText: "story.mp4" })).toHaveText("story.mp4");
+
+  const secondVideo = Buffer.concat([await readFile(videoFixture), Buffer.from([0])]);
+  await videoInput.setInputFiles({
+    name: "story-second.mp4",
+    mimeType: "video/mp4",
+    buffer: secondVideo,
+  });
+  await expect(page.locator(".file-name").filter({ hasText: "story-second.mp4" })).toHaveText("story-second.mp4");
+  await expect(page.getByText(/Cannot read properties of null/)).toHaveCount(0);
 });
 
 test("ripristina le clip salvate nel formato legacy stringa", async ({ page }) => {
