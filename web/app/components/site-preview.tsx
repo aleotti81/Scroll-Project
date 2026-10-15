@@ -48,6 +48,40 @@ function PreviewVideo({
   return <PreviewVideoFrame key={url ?? "missing"} url={url} progress={progress} poster={poster} />;
 }
 
+type FrameManifest = { id: string; count: number; width: number; height: number };
+
+const frameManifestCache = new Map<string, Promise<FrameManifest>>();
+
+function loadFrameManifest(sourceUrl: string, source: string): Promise<FrameManifest> {
+  let request = frameManifestCache.get(sourceUrl);
+  if (!request) {
+    request = (async () => {
+      const sourceResponse = await fetch(source);
+      if (!sourceResponse.ok) throw new Error("Video non disponibile.");
+      const blob = await sourceResponse.blob();
+      const upload = new File([blob], "preview.mp4", {
+        type: blob.type || "video/mp4",
+      });
+      const form = new FormData();
+      form.set("video", upload);
+      const response = await fetch("/api/video-frames", { method: "POST", body: form });
+      if (!response.ok) throw new Error("Impossibile preparare i frame del video.");
+      const manifest = await response.json() as FrameManifest;
+      if (
+        !/^[a-f0-9]{24}$/.test(manifest.id) ||
+        !Number.isInteger(manifest.count) || manifest.count < 1 ||
+        !Number.isInteger(manifest.width) || manifest.width < 1 ||
+        !Number.isInteger(manifest.height) || manifest.height < 1
+      ) {
+        throw new Error("Manifest dei frame non valido.");
+      }
+      return manifest;
+    })();
+    frameManifestCache.set(sourceUrl, request);
+  }
+  return request;
+}
+
 function PreviewVideoFrame({
   url,
   progress,
@@ -58,6 +92,8 @@ function PreviewVideoFrame({
   poster?: string;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const framesRef = useRef<HTMLImageElement[]>([]);
   const targetProgress = useRef(progress);
   const shownTime = useRef(0);
   const [source, setSource] = useState<string | undefined>(() =>
@@ -66,6 +102,7 @@ function PreviewVideoFrame({
   const [metadataReady, setMetadataReady] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [framesReady, setFramesReady] = useState(false);
 
   useEffect(() => {
     targetProgress.current = clamp(progress);
@@ -110,8 +147,35 @@ function PreviewVideoFrame({
   }, [url]);
 
   useEffect(() => {
+    if (!url || !source) return;
+    let active = true;
+
+    loadFrameManifest(url, source)
+      .then((manifest) => Promise.all(
+        Array.from({ length: manifest.count }, (_, index) => {
+          const image = new Image();
+          image.src = `/api/video-frames/${manifest.id}/${index + 1}`;
+          return image.decode().then(() => image);
+        }),
+      ))
+      .then((frames) => {
+        if (!active) return;
+        framesRef.current = frames;
+        setFramesReady(true);
+      })
+      .catch(() => {
+        if (active) {
+          framesRef.current = [];
+          setFramesReady(false);
+        }
+      });
+
+    return () => { active = false; };
+  }, [source, url]);
+
+  useEffect(() => {
     const video = ref.current;
-    if (!video || !metadataReady) return;
+    if (!video || !metadataReady || framesReady) return;
 
     let animationFrame = 0;
     const scrub = () => {
@@ -134,7 +198,70 @@ function PreviewVideoFrame({
 
     animationFrame = requestAnimationFrame(scrub);
     return () => cancelAnimationFrame(animationFrame);
-  }, [metadataReady, reducedMotion, source]);
+  }, [framesReady, metadataReady, reducedMotion, source]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const frames = framesRef.current;
+    if (!canvas || !framesReady || frames.length === 0) return;
+
+    const context = canvas.getContext("2d");
+    if (!context) return;
+
+    let animationFrame = 0;
+    let shownFrame = 0;
+    let renderedFrame = -1;
+    const drawFrame = (frameIndex: number) => {
+      const image = frames[frameIndex];
+      const imageWidth = image.naturalWidth;
+      const imageHeight = image.naturalHeight;
+      if (!imageWidth || !imageHeight || !canvas.width || !canvas.height) return;
+      const scale = Math.max(canvas.width / imageWidth, canvas.height / imageHeight);
+      const width = imageWidth * scale;
+      const height = imageHeight * scale;
+      context.drawImage(
+        image,
+        (canvas.width - width) / 2,
+        (canvas.height - height) / 2,
+        width,
+        height,
+      );
+      renderedFrame = frameIndex;
+    };
+    const resizeCanvas = () => {
+      const width = canvas.clientWidth;
+      const height = canvas.clientHeight;
+      if (!width || !height) return;
+      const pixelRatio = window.devicePixelRatio || 1;
+      const backingWidth = Math.round(width * pixelRatio);
+      const backingHeight = Math.round(height * pixelRatio);
+      if (canvas.width !== backingWidth || canvas.height !== backingHeight) {
+        canvas.width = backingWidth;
+        canvas.height = backingHeight;
+      }
+      if (renderedFrame >= 0) drawFrame(renderedFrame);
+    };
+    const resizeObserver = new ResizeObserver(resizeCanvas);
+    resizeObserver.observe(canvas);
+    resizeCanvas();
+
+    const render = () => {
+      const target = targetProgress.current * (frames.length - 1);
+      const difference = target - shownFrame;
+      shownFrame = Math.abs(difference) < 0.001
+        ? target
+        : shownFrame + difference * (reducedMotion ? 1 : 0.12);
+      const frameIndex = Math.round(shownFrame);
+      if (frameIndex !== renderedFrame) drawFrame(frameIndex);
+      animationFrame = requestAnimationFrame(render);
+    };
+    animationFrame = requestAnimationFrame(render);
+
+    return () => {
+      cancelAnimationFrame(animationFrame);
+      resizeObserver.disconnect();
+    };
+  }, [framesReady, reducedMotion]);
 
   const handleLoadedMetadata = () => {
     const video = ref.current;
@@ -153,7 +280,7 @@ function PreviewVideoFrame({
   if (!url) return <div className="preview-media preview-missing"><span>Video da ricaricare</span></div>;
   return (
     <>
-      {!loaded && poster && <PreviewImage url={poster} label="Foto iniziale" />}
+      {!framesReady && !loaded && poster && <PreviewImage url={poster} label="Foto iniziale" />}
       {source && (
         <video
           ref={ref}
@@ -164,9 +291,10 @@ function PreviewVideoFrame({
           preload="auto"
           onLoadedMetadata={handleLoadedMetadata}
           onLoadedData={() => setLoaded(true)}
-          style={poster ? { opacity: loaded ? 1 : 0 } : undefined}
+          style={poster || framesReady ? { opacity: loaded && !framesReady ? 1 : 0 } : undefined}
         />
       )}
+      {framesReady && <canvas ref={canvasRef} className="preview-media" />}
     </>
   );
 }

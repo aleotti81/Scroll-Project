@@ -198,6 +198,7 @@ test("completa il configuratore ed esporta le scene con una clip AI da 0,29 $", 
   await expect(preview.getByRole("region", { name: "Sezione 1" })).toContainText("L'arrivo in una casa accogliente.");
   await expect(preview.getByRole("region", { name: "Sezione 2" })).toContainText("Qui comincia la vacanza");
   await expect(preview.locator("video")).toHaveCount(1);
+  await expect(preview.locator("canvas.preview-media")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(preview).toBeHidden();
   await expect(page.getByRole("heading", { name: "La tua storia, in breve" })).toBeVisible();
