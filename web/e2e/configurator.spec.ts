@@ -119,7 +119,7 @@ test("ripristina la bozza dopo aver ricaricato la pagina", async ({ page }) => {
   await expect(page.getByLabel("Nome della struttura o del progetto")).toHaveValue("La mia casa di prova");
 });
 
-test("accetta un video quando il valore predefinito ripristinato è null", async ({ page }) => {
+test("accetta un secondo video dopo il ripristino del valore null", async ({ page }) => {
   await page.goto("/crea");
   await page.getByLabel("Nome della struttura o del progetto").fill("Casa delle colline");
   await page.getByLabel("Missione").fill("Accogliere con cura e semplicità.");
@@ -146,9 +146,18 @@ test("accetta un video quando il valore predefinito ripristinato è null", async
     return { source: draft?.sections?.[0]?.media?.source, video: draft?.sections?.[0]?.media?.video };
   })).toEqual({ source: "video", video: null });
 
-  await page.locator("#sections-0-media-video").setInputFiles(videoFixture);
-  await expect(page.getByText(/Cannot read properties of null/)).toHaveCount(0);
+  const videoInput = page.locator("#sections-0-media-video");
+  await videoInput.setInputFiles(videoFixture);
   await expect(page.locator(".file-name").filter({ hasText: "story.mp4" })).toHaveText("story.mp4");
+
+  const secondVideo = Buffer.concat([await readFile(videoFixture), Buffer.from([0])]);
+  await videoInput.setInputFiles({
+    name: "story-second.mp4",
+    mimeType: "video/mp4",
+    buffer: secondVideo,
+  });
+  await expect(page.locator(".file-name").filter({ hasText: "story-second.mp4" })).toHaveText("story-second.mp4");
+  await expect(page.getByText(/Cannot read properties of null/)).toHaveCount(0);
 });
 
 test("ripristina le clip salvate nel formato legacy stringa", async ({ page }) => {
