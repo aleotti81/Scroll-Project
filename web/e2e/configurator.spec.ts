@@ -22,7 +22,7 @@ test("ripristina la bozza dopo aver ricaricato la pagina", async ({ page }) => {
   await expect(page.getByLabel("Nome della struttura o del progetto")).toHaveValue("La mia casa di prova");
 });
 
-test("completa il configuratore ed esporta le scene con una clip AI da 0,29 USD", async ({ page }, testInfo) => {
+test("completa il configuratore ed esporta le scene con una clip AI da 0,29 $", async ({ page }, testInfo) => {
   await page.goto("/crea");
 
   await page.getByLabel("Nome della struttura o del progetto").fill("Casa delle colline");
@@ -71,7 +71,7 @@ test("completa il configuratore ed esporta le scene con una clip AI da 0,29 USD"
   await page.getByRole("button", { name: "Avanti" }).click();
 
   await expect(page.getByRole("heading", { name: "La tua storia, in breve" })).toBeVisible();
-  await expect(page.getByText("0,29 USD").last()).toBeVisible();
+  await expect(page.getByText(/0,29\s+\$/).last()).toBeVisible();
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Scarica scenes.json" }).click();
   const download = await downloadPromise;

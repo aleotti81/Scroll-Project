@@ -20,5 +20,6 @@ export function formatCost(value: number) {
   return new Intl.NumberFormat("it-IT", {
     style: "currency",
     currency: "USD",
+    currencyDisplay: "narrowSymbol",
   }).format(value);
 }
