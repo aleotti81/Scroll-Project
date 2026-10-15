@@ -51,6 +51,7 @@ import {
   validateVideoFile,
 } from "@/lib/files";
 import { fontPairs, googleFontsUrl } from "@/lib/fonts";
+import SitePreview from "./site-preview";
 import {
   configuratorSchema,
   contactFieldsSchema,
@@ -370,6 +371,8 @@ export default function ConfiguratorWizard() {
   const [fileErrors, setFileErrors] = useState<Record<string, string>>({});
   const [fileWarnings, setFileWarnings] = useState<Record<string, string>>({});
   const [success, setSuccess] = useState("");
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const closePreview = useCallback(() => setPreviewOpen(false), []);
   const files = useRef(new Map<string, StoredFile>());
   const uploadVersions = useRef(new Map<string, number>());
   const uploadSeq = useRef(0);
@@ -1233,6 +1236,13 @@ export default function ConfiguratorWizard() {
                   </div>
                 )}
                 <div className="form-section">
+                  <h3 className="form-section-title">Anteprima del sito</h3>
+                  <p className="field-hint">Scorri il sito come lo vedrà un visitatore. Le clip AI non sono ancora generate: al loro posto vedi un passaggio tra foto iniziale e finale.</p>
+                  <div className="action-group" style={{ marginTop: 13 }}>
+                    <button className="button button-dark" type="button" onClick={() => setPreviewOpen(true)}>Apri anteprima del sito <Icon name="arrow-up-right" /></button>
+                  </div>
+                </div>
+                <div className="form-section">
                   <h3 className="form-section-title">Esporta o invia la bozza</h3>
                   <p className="field-hint">I file restano nel browser: brand.json e scenes.json contengono metadati, non i file originali.</p>
                   <div className="action-group" style={{ marginTop: 13, flexWrap: "wrap" }}>
@@ -1264,6 +1274,7 @@ export default function ConfiguratorWizard() {
             </div>
           </div>
         </form>
+        {previewOpen && <SitePreview data={watched} fileUrls={fileUrls} onClose={closePreview} />}
         <p className="wizard-footer">Una prima bozza, tutta tua. Nessun costo e nessun contenuto viene inviato online.</p>
       </main>
     </div>

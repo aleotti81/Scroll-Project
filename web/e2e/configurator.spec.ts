@@ -116,4 +116,14 @@ test("completa il configuratore ed esporta le scene con una clip AI da 0,29 $", 
   expect(scenes.sections[0].text1).toEqual({ mode: "ai", brief: "L'arrivo in una casa accogliente." });
   expect(scenes.sections[1].media).toMatchObject({ source: "photos", linkPrevious: true });
   expect(scenes.sections[2].media?.source).toBe("video");
+
+  await page.getByRole("button", { name: "Apri anteprima del sito" }).click();
+  const preview = page.getByRole("dialog", { name: "Anteprima del sito" });
+  await expect(preview).toBeVisible();
+  await expect(preview.getByRole("region", { name: "Sezione 1" })).toContainText("L'arrivo in una casa accogliente.");
+  await expect(preview.getByRole("region", { name: "Sezione 2" })).toContainText("Qui comincia la vacanza");
+  await expect(preview.locator("video")).toHaveCount(1);
+  await page.keyboard.press("Escape");
+  await expect(preview).toBeHidden();
+  await expect(page.getByRole("heading", { name: "La tua storia, in breve" })).toBeVisible();
 });
