@@ -51,6 +51,8 @@ import {
   validateVideoFile,
 } from "@/lib/files";
 import { fontPairs, googleFontsUrl } from "@/lib/fonts";
+import SitePreview from "./site-preview";
+import VideoRequestDialog from "./video-request-dialog";
 import {
   configuratorSchema,
   contactFieldsSchema,
@@ -63,6 +65,9 @@ import {
 } from "@/lib/schema";
 
 const draftKey = "scroll-studio-configuratore-v1";
+const generatedClipsKey = "scroll-studio-clips-v1";
+const CLIP_POLL_INTERVAL_MS = 5_000;
+const CLIP_POLL_TIMEOUT_MS = 10 * 60 * 1_000;
 const stepNames = ["Progetto", "Contatti e SEO", "Stile", "Sezioni", "Riepilogo"];
 const sectionLabels = {
   A: "Testo → Foto → Testo",
@@ -73,6 +78,19 @@ const sectionLabels = {
 type StepIssue = { path: string; message: string };
 type StoredFile = { file: File; url: string };
 type FileKind = "image" | "video";
+type ClipState = {
+  status: "queued" | "running" | "done" | "error";
+  requestId?: string;
+  videoUrl?: string;
+  error?: string;
+};
+type ClipFrames = { start: FileRef | null; end: FileRef | null };
+type PollSession = {
+  requestId: string;
+  controller: AbortController;
+  startedAt: number;
+  timer: number | null;
+};
 
 function blankSection(type: "A" | "B" | "C", id = crypto.randomUUID()) {
   const manualText = { mode: "manual" as const, title: "", subtitle: "" };
@@ -244,6 +262,53 @@ function getSectionFrame(section?: Section): FileRef | null {
   return null;
 }
 
+function getClipFrames(section: Section, index: number, sections: Section[]): ClipFrames | null {
+  if ((section.type !== "B" && section.type !== "C") || section.media.source !== "photos") {
+    return null;
+  }
+  return {
+    start: section.media.linkPrevious
+      ? getSectionFrame(sections[index - 1])
+      : section.media.startPhoto,
+    end: section.media.endPhoto,
+  };
+}
+
+function clipInputKey(section: Section, index: number, sections: Section[]): string | null {
+  if (
+    (section.type !== "B" && section.type !== "C") ||
+    section.media.source !== "photos"
+  ) {
+    return null;
+  }
+  const frames = getClipFrames(section, index, sections);
+  if (!frames) return null;
+  return JSON.stringify([
+    section.type,
+    section.media.source,
+    frames.start?.id ?? null,
+    frames.end?.id ?? null,
+    section.media.durationSec,
+    section.media.linkPrevious,
+    section.media.motionPrompt?.trim() ?? "",
+  ]);
+}
+
+function hasClipFiles(
+  section: Section,
+  index: number,
+  sections: Section[],
+  files: Map<string, StoredFile>,
+): boolean {
+  const frames = getClipFrames(section, index, sections);
+  return Boolean(
+    frames?.start &&
+    frames.end &&
+    files.has(frames.start.id) &&
+    files.has(frames.end.id),
+  );
+}
+
 function SortableSection({
   id,
   children,
@@ -370,9 +435,29 @@ export default function ConfiguratorWizard() {
   const [fileErrors, setFileErrors] = useState<Record<string, string>>({});
   const [fileWarnings, setFileWarnings] = useState<Record<string, string>>({});
   const [success, setSuccess] = useState("");
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const closePreview = useCallback(() => setPreviewOpen(false), []);
+  const [videoDialogOpen, setVideoDialogOpen] = useState(false);
+  const [dialogSectionIds, setDialogSectionIds] = useState<string[]>([]);
+  const [clips, setClips] = useState<Record<string, ClipState>>({});
+  const [clipPersistenceReady, setClipPersistenceReady] = useState(false);
+  const [clipSubmissionsActive, setClipSubmissionsActive] = useState(false);
+  const closeVideoDialog = useCallback(() => {
+    setVideoDialogOpen(false);
+    setDialogSectionIds([]);
+  }, []);
+  const openVideoDialog = useCallback((sectionIds: string[]) => {
+    setDialogSectionIds(sectionIds);
+    setVideoDialogOpen(true);
+  }, []);
   const files = useRef(new Map<string, StoredFile>());
   const uploadVersions = useRef(new Map<string, number>());
   const uploadSeq = useRef(0);
+  const clipInputKeys = useRef<Map<string, string> | null>(null);
+  const pollingSessions = useRef(new Map<string, PollSession>());
+  const submissionControllers = useRef(new Map<string, AbortController>());
+  const clipUrlUpgradeAttempts = useRef(new Set<string>());
+  const clipUrlUpgradeControllers = useRef(new Map<string, AbortController>());
   const fileUrlsRef = useRef(fileUrls);
   fileUrlsRef.current = fileUrls;
 
@@ -452,6 +537,252 @@ export default function ConfiguratorWizard() {
       setHydrated(true);
     }
   }, [reset]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      const saved = localStorage.getItem(generatedClipsKey);
+      const parsed: unknown = saved ? JSON.parse(saved) : {};
+      const restored: Record<string, ClipState> = {};
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        Object.entries(parsed).forEach(([sectionId, storedClip]) => {
+          if (typeof storedClip === "string" && storedClip) {
+            restored[sectionId] = { status: "done", videoUrl: storedClip };
+          } else if (storedClip && typeof storedClip === "object" && !Array.isArray(storedClip)) {
+            const value = storedClip as { videoUrl?: unknown; requestId?: unknown };
+            if (typeof value.videoUrl === "string" && value.videoUrl) {
+              restored[sectionId] = {
+                status: "done",
+                videoUrl: value.videoUrl,
+                ...(typeof value.requestId === "string" ? { requestId: value.requestId } : {}),
+              };
+            }
+          }
+        });
+      }
+      setClips(restored);
+    } catch {
+      localStorage.removeItem(generatedClipsKey);
+    } finally {
+      setClipPersistenceReady(true);
+    }
+  }, [hydrated]);
+
+  useEffect(() => {
+    if (!clipPersistenceReady) return;
+    const currentKeys = new Map<string, string>();
+    sections.forEach((section, index) => {
+      const key = clipInputKey(section as Section, index, sections as Section[]);
+      if (key) currentKeys.set(section.id, key);
+    });
+
+    const previousKeys = clipInputKeys.current;
+    clipInputKeys.current = currentKeys;
+    if (!previousKeys) {
+      const currentIds = new Set(currentKeys.keys());
+      setClips((current) => {
+        const entries = Object.entries(current).filter(([sectionId, clip]) =>
+          currentIds.has(sectionId) && clip.status === "done" && Boolean(clip.videoUrl),
+        );
+        return entries.length === Object.keys(current).length
+          ? current
+          : Object.fromEntries(entries);
+      });
+      return;
+    }
+
+    const changedIds = new Set(
+      [...previousKeys.keys(), ...currentKeys.keys()].filter(
+        (sectionId) => previousKeys.get(sectionId) !== currentKeys.get(sectionId),
+      ),
+    );
+    if (!changedIds.size) return;
+    changedIds.forEach((sectionId) => submissionControllers.current.get(sectionId)?.abort());
+    setClips((current) => {
+      let changed = false;
+      const next = { ...current };
+      changedIds.forEach((sectionId) => {
+        if (sectionId in next) {
+          delete next[sectionId];
+          changed = true;
+        }
+      });
+      return changed ? next : current;
+    });
+  }, [sections, clipPersistenceReady]);
+
+  useEffect(() => {
+    if (!clipPersistenceReady) return;
+    const storedClips: Record<string, { videoUrl: string; requestId?: string }> = {};
+    Object.entries(clips).forEach(([sectionId, clip]) => {
+      if (clip.status === "done" && clip.videoUrl) {
+        storedClips[sectionId] = { videoUrl: clip.videoUrl, requestId: clip.requestId };
+      }
+    });
+    localStorage.setItem(generatedClipsKey, JSON.stringify(storedClips));
+  }, [clips, clipPersistenceReady]);
+
+  useEffect(() => {
+    Object.entries(clips).forEach(([sectionId, clip]) => {
+      const requestId = clip.requestId;
+      const oldVideoUrl = clip.videoUrl;
+      if (
+        clip.status !== "done" ||
+        !requestId ||
+        !oldVideoUrl ||
+        oldVideoUrl.startsWith("/api/video-clips/") ||
+        clipUrlUpgradeAttempts.current.has(requestId)
+      ) {
+        return;
+      }
+
+      clipUrlUpgradeAttempts.current.add(requestId);
+      const controller = new AbortController();
+      clipUrlUpgradeControllers.current.set(requestId, controller);
+      void fetch(`/api/video-clips/${encodeURIComponent(requestId)}`, {
+        signal: controller.signal,
+      })
+        .then(async (response) => {
+          const payload: unknown = await response.json().catch(() => null);
+          if (!response.ok || !payload || typeof payload !== "object") return;
+          const result = payload as { status?: unknown; videoUrl?: unknown };
+          if (result.status !== "done" || typeof result.videoUrl !== "string") return;
+          setClips((current) => {
+            const existing = current[sectionId];
+            if (
+              existing?.status !== "done" ||
+              existing.requestId !== requestId ||
+              existing.videoUrl !== oldVideoUrl
+            ) {
+              return current;
+            }
+            return {
+              ...current,
+              [sectionId]: { ...existing, videoUrl: result.videoUrl as string },
+            };
+          });
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          clipUrlUpgradeControllers.current.delete(requestId);
+        });
+    });
+  }, [clips]);
+
+  useEffect(() => {
+    const activeClips = Object.entries(clips).filter(
+      ([, clip]) =>
+        (clip.status === "queued" || clip.status === "running") && Boolean(clip.requestId),
+    );
+
+    pollingSessions.current.forEach((session, sectionId) => {
+      const current = clips[sectionId];
+      if (
+        !current ||
+        (current.status !== "queued" && current.status !== "running") ||
+        current.requestId !== session.requestId
+      ) {
+        session.controller.abort();
+        if (session.timer !== null) window.clearTimeout(session.timer);
+        pollingSessions.current.delete(sectionId);
+      }
+    });
+
+    if (clipSubmissionsActive) return;
+
+    activeClips.forEach(([sectionId, clip]) => {
+      const requestId = clip.requestId;
+      if (!requestId || pollingSessions.current.has(sectionId)) return;
+      const session: PollSession = {
+        requestId,
+        controller: new AbortController(),
+        startedAt: Date.now(),
+        timer: null,
+      };
+      pollingSessions.current.set(sectionId, session);
+
+      const finish = (next: ClipState) => {
+        if (session.controller.signal.aborted) return;
+        if (session.timer !== null) window.clearTimeout(session.timer);
+        pollingSessions.current.delete(sectionId);
+        setClips((current) => {
+          if (current[sectionId]?.requestId !== requestId) return current;
+          return { ...current, [sectionId]: next };
+        });
+      };
+
+      const poll = async () => {
+        if (session.controller.signal.aborted) return;
+        const remaining = CLIP_POLL_TIMEOUT_MS - (Date.now() - session.startedAt);
+        if (remaining <= 0) {
+          finish({ status: "error", error: "Tempo scaduto." });
+          return;
+        }
+
+        try {
+          const response = await fetch(
+            `/api/video-clips/${encodeURIComponent(requestId)}`,
+            { signal: session.controller.signal },
+          );
+          const payload: unknown = await response.json().catch(() => null);
+          if (session.controller.signal.aborted) return;
+          const result = payload && typeof payload === "object"
+            ? payload as { status?: unknown; videoUrl?: unknown; error?: unknown }
+            : {};
+
+          if (!response.ok) {
+            finish({
+              status: "error",
+              error: typeof result.error === "string"
+                ? result.error
+                : "Impossibile verificare la generazione.",
+            });
+            return;
+          }
+          if (result.status === "done" && typeof result.videoUrl === "string") {
+            finish({ status: "done", requestId, videoUrl: result.videoUrl });
+            return;
+          }
+          if (result.status === "error") {
+            finish({
+              status: "error",
+              requestId,
+              error: typeof result.error === "string" ? result.error : "Generazione non riuscita.",
+            });
+            return;
+          }
+          if (result.status !== "queued" && result.status !== "running") {
+            finish({ status: "error", requestId, error: "Impossibile verificare la generazione." });
+            return;
+          }
+
+          const nextStatus = result.status as "queued" | "running";
+          setClips((current) => {
+            if (current[sectionId]?.requestId !== requestId) return current;
+            return { ...current, [sectionId]: { status: nextStatus, requestId } };
+          });
+          session.timer = window.setTimeout(poll, Math.min(CLIP_POLL_INTERVAL_MS, remaining));
+        } catch {
+          if (session.controller.signal.aborted) return;
+          finish({ status: "error", requestId, error: "Impossibile verificare la generazione." });
+        }
+      };
+
+      void poll();
+    });
+  }, [clips, clipSubmissionsActive]);
+
+  useEffect(() => () => {
+    pollingSessions.current.forEach((session) => {
+      session.controller.abort();
+      if (session.timer !== null) window.clearTimeout(session.timer);
+    });
+    pollingSessions.current.clear();
+    submissionControllers.current.forEach((controller) => controller.abort());
+    submissionControllers.current.clear();
+    clipUrlUpgradeControllers.current.forEach((controller) => controller.abort());
+    clipUrlUpgradeControllers.current.clear();
+  }, []);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -762,10 +1093,13 @@ export default function ConfiguratorWizard() {
 
   const clearDraft = () => {
     localStorage.removeItem(draftKey);
+    localStorage.removeItem(generatedClipsKey);
     window.clearTimeout(saveTimer.current);
     setFileErrors({});
     setFileWarnings({});
     setDraftRestored(false);
+    setClips({});
+    clipInputKeys.current = null;
     invalidateUploads();
     reset(initialValues());
     setStep(1);
@@ -801,6 +1135,118 @@ export default function ConfiguratorWizard() {
   const textContrast = manualColors ? contrastRatio(manualColors.text, manualColors.background) : 0;
   const sectionTotal = sections.length;
   const totalAI = totalCost(sections as Section[]);
+  const typedSections = sections as Section[];
+  const aiClips = typedSections.flatMap((section, index) => {
+    const cost = sectionCost(section);
+    return cost > 0 ? [{ section, index, cost }] : [];
+  });
+  const availableClipIds = aiClips
+    .filter(({ section, index }) => hasClipFiles(section, index, typedSections, files.current))
+    .map(({ section }) => section.id);
+  const availableClipIdSet = new Set(availableClipIds);
+  const pendingClips = aiClips.filter(({ section }) => {
+    const status = clips[section.id]?.status;
+    return status !== "done" && status !== "queued" && status !== "running";
+  });
+  const pendingSectionIds = pendingClips.map(({ section }) => section.id);
+  const pendingVideoCost = pendingClips.reduce((total, clip) => total + clip.cost, 0);
+  const clipUrls = Object.fromEntries(
+    Object.entries(clips)
+      .filter(([, clip]) => clip.status === "done" && clip.videoUrl)
+      .map(([sectionId, clip]) => [sectionId, clip.videoUrl!]),
+  );
+
+  const submitClip = useCallback(async (sectionId: string) => {
+    const currentSections = getValues("sections") as Section[];
+    const index = currentSections.findIndex((section) => section.id === sectionId);
+    const section = currentSections[index];
+    if (
+      !section ||
+      (section.type !== "B" && section.type !== "C") ||
+      section.media.source !== "photos"
+    ) {
+      setClips((current) => ({
+        ...current,
+        [sectionId]: { status: "error", error: "Ricarica le foto." },
+      }));
+      return;
+    }
+    const frames = getClipFrames(section, index, currentSections);
+    const startFile = frames?.start ? files.current.get(frames.start.id)?.file : undefined;
+    const endFile = frames?.end ? files.current.get(frames.end.id)?.file : undefined;
+    if (!startFile || !endFile) {
+      setClips((current) => ({
+        ...current,
+        [sectionId]: { status: "error", error: "Ricarica le foto." },
+      }));
+      return;
+    }
+
+    const form = new FormData();
+    form.set("startImage", startFile);
+    form.set("endImage", endFile);
+    form.set("durationSec", String(section.media.durationSec));
+    const motionPrompt = section.media.motionPrompt?.trim() ?? "";
+    if (motionPrompt) form.set("prompt", motionPrompt);
+
+    const controller = new AbortController();
+    submissionControllers.current.get(sectionId)?.abort();
+    submissionControllers.current.set(sectionId, controller);
+    setClips((current) => ({ ...current, [sectionId]: { status: "queued" } }));
+
+    try {
+      const response = await fetch("/api/video-clips", {
+        method: "POST",
+        body: form,
+        signal: controller.signal,
+      });
+      const payload: unknown = await response.json().catch(() => null);
+      if (
+        controller.signal.aborted ||
+        submissionControllers.current.get(sectionId) !== controller
+      ) {
+        return;
+      }
+      const result = payload && typeof payload === "object"
+        ? payload as { requestId?: unknown; error?: unknown }
+        : {};
+      if (!response.ok || typeof result.requestId !== "string") {
+        throw new Error(
+          typeof result.error === "string"
+            ? result.error
+            : "Il servizio video non ha accettato la richiesta.",
+        );
+      }
+      setClips((current) => ({
+        ...current,
+        [sectionId]: { status: "queued", requestId: result.requestId as string },
+      }));
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      setClips((current) => ({
+        ...current,
+        [sectionId]: {
+          status: "error",
+          error: error instanceof Error
+            ? error.message
+            : "Il servizio video non ha accettato la richiesta.",
+        },
+      }));
+    } finally {
+      if (submissionControllers.current.get(sectionId) === controller) {
+        submissionControllers.current.delete(sectionId);
+      }
+    }
+  }, [getValues]);
+
+  const submitRequestedClips = useCallback(async (sectionIds: string[]) => {
+    setClipSubmissionsActive(true);
+    try {
+      for (const sectionId of sectionIds) await submitClip(sectionId);
+    } finally {
+      setClipSubmissionsActive(false);
+    }
+  }, [submitClip]);
 
   const renderTextBlock = (basePath: string) => (
     <TextBlockFields basePath={basePath} register={register} getError={getError} control={control} setValue={setValue} />
@@ -1233,6 +1679,55 @@ export default function ConfiguratorWizard() {
                   </div>
                 )}
                 <div className="form-section">
+                  <h3 className="form-section-title">Anteprima del sito</h3>
+                  <p className="field-hint">Scorri il sito come lo vedrà un visitatore. Le clip AI non sono ancora generate: al loro posto vedi un passaggio tra foto iniziale e finale.</p>
+                  <div className="action-group" style={{ marginTop: 13 }}>
+                    <button className="button button-dark" type="button" onClick={() => setPreviewOpen(true)}>Apri anteprima del sito <Icon name="arrow-up-right" /></button>
+                  </div>
+                </div>
+                <div className="form-section">
+                  <h3 className="form-section-title">Video AI</h3>
+                  {aiClips.length === 0 ? (
+                    <p className="field-hint">Nessuna sezione richiede una clip AI: usi solo foto fisse o video caricati.</p>
+                  ) : (
+                    <>
+                      <div className="video-clip-statuses">
+                        {aiClips.map(({ section, index }) => {
+                          const clip = clips[section.id];
+                          const statusText = clip?.status === "queued"
+                            ? "In coda"
+                            : clip?.status === "running"
+                              ? "In generazione…"
+                              : clip?.status === "done"
+                                ? "Pronta"
+                                : clip?.status === "error"
+                                  ? `Errore: ${clip.error || "Generazione non riuscita."}`
+                                  : availableClipIdSet.has(section.id)
+                                    ? "Da generare"
+                                    : "Ricarica le foto";
+                          return (
+                            <div className="video-clip-row" role="status" key={section.id}>
+                              <span>Sezione {index + 1} · {statusText}</span>
+                              {clip?.status === "error" && (
+                                <button
+                                  className="button-outline"
+                                  type="button"
+                                  onClick={() => openVideoDialog([section.id])}
+                                >Riprova</button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {pendingSectionIds.length > 0 && (
+                      <div className="action-group" style={{ marginTop: 13 }}>
+                        <button className="button button-dark" type="button" onClick={() => openVideoDialog(pendingSectionIds)}><Icon name="sparkle" /> Crea i video AI · {formatCost(pendingVideoCost)}</button>
+                      </div>
+                      )}
+                    </>
+                  )}
+                </div>
+                <div className="form-section">
                   <h3 className="form-section-title">Esporta o invia la bozza</h3>
                   <p className="field-hint">I file restano nel browser: brand.json e scenes.json contengono metadati, non i file originali.</p>
                   <div className="action-group" style={{ marginTop: 13, flexWrap: "wrap" }}>
@@ -1264,6 +1759,30 @@ export default function ConfiguratorWizard() {
             </div>
           </div>
         </form>
+        {previewOpen && (
+          <SitePreview
+            data={watched}
+            fileUrls={fileUrls}
+            clipUrls={clipUrls}
+            pendingSectionIds={pendingSectionIds}
+            pendingVideoCost={pendingVideoCost}
+            allClipsDone={aiClips.length > 0 && aiClips.every(({ section }) => clips[section.id]?.status === "done")}
+            onClose={closePreview}
+            onRequestVideos={() => openVideoDialog(pendingSectionIds)}
+          />
+        )}
+        {videoDialogOpen && (
+          <VideoRequestDialog
+            sections={typedSections}
+            candidateSectionIds={dialogSectionIds.filter((sectionId) => pendingSectionIds.includes(sectionId))}
+            availableSectionIds={availableClipIds}
+            onCancel={closeVideoDialog}
+            onConfirm={(request) => {
+              closeVideoDialog();
+              void submitRequestedClips(request.sectionIds);
+            }}
+          />
+        )}
         <p className="wizard-footer">Una prima bozza, tutta tua. Nessun costo e nessun contenuto viene inviato online.</p>
       </main>
     </div>
