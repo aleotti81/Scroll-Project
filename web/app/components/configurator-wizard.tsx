@@ -822,7 +822,7 @@ export default function ConfiguratorWizard() {
         !hasUsableFrame(index)
       ) {
         setValue(`sections.${index}.media.linkPrevious` as FieldPath<ConfiguratorData>, false as never, { shouldDirty: true });
-        setValue(`sections.${index}.media.startPhoto` as FieldPath<ConfiguratorData>, null as never, { shouldDirty: true });
+        setValue(`sections.${index}.media.startPhoto` as FieldPath<ConfiguratorData>, null as never);
       }
     });
   }, [sections, hasUsableFrame, setValue]);
@@ -860,7 +860,7 @@ export default function ConfiguratorWizard() {
       if (!isCurrentRequest() || !currentPath) return;
       const currentKey = String(currentPath);
       setFileErrors((current) => ({ ...current, [currentKey]: check.error! }));
-      setValue(currentPath, null as never, { shouldDirty: true, shouldValidate: true });
+      setValue(currentPath, null as never, { shouldValidate: true });
       return;
     }
     try {
@@ -875,7 +875,7 @@ export default function ConfiguratorWizard() {
           if (!isCurrentRequest() || !currentPath) return;
           const currentKey = String(currentPath);
           setFileErrors((current) => ({ ...current, [currentKey]: durationCheck.error! }));
-          setValue(currentPath, null as never, { shouldDirty: true, shouldValidate: true });
+          setValue(currentPath, null as never, { shouldValidate: true });
           return;
         }
       }
@@ -1350,7 +1350,7 @@ export default function ConfiguratorWizard() {
                       aria-describedby={`link-prev-${index}-hint`}
                       onChange={(event) => {
                         setValue(`sections.${index}.media.linkPrevious` as FieldPath<ConfiguratorData>, event.target.checked as never, { shouldDirty: true, shouldValidate: true });
-                        if (event.target.checked) setValue(`sections.${index}.media.startPhoto` as FieldPath<ConfiguratorData>, null as never, { shouldDirty: true });
+                        if (event.target.checked) setValue(`sections.${index}.media.startPhoto` as FieldPath<ConfiguratorData>, null as never);
                       }}
                     />
                     <span>Raccorda con la sezione precedente</span>

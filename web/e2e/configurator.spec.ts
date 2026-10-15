@@ -1,10 +1,13 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { promisify } from "node:util";
 import type { SiteChrome } from "../lib/site-import";
 
 const imageFixture = path.join(__dirname, "fixtures", "story.jpg");
 const videoFixture = path.join(__dirname, "fixtures", "story.mp4");
+const execFileAsync = promisify(execFile);
 
 const importedChrome: SiteChrome = {
   sourceUrl: "https://www.esempio.it/",
@@ -158,6 +161,73 @@ test("accetta un secondo video dopo il ripristino del valore null", async ({ pag
   });
   await expect(page.locator(".file-name").filter({ hasText: "story-second.mp4" })).toHaveText("story-second.mp4");
   await expect(page.getByText(/Cannot read properties of null/)).toHaveCount(0);
+});
+
+test("mostra l’errore di durata quando si sostituisce un video ripristinato", async ({ page }, testInfo) => {
+  await page.goto("/crea");
+  await page.getByLabel("Nome della struttura o del progetto").fill("Casa delle colline");
+  await page.getByLabel("Missione").fill("Accogliere con cura e semplicità.");
+  await page.getByLabel("Valori e senso").fill("Natura, lentezza, ospitalità.");
+  await page.getByLabel("A chi ti rivolgi?").fill("Viaggiatori curiosi.");
+  await page.getByRole("button", { name: "Avanti" }).click();
+  await page.getByLabel("Keyword primaria").fill("casa vacanze in Toscana");
+  await page.getByLabel("Titolo SEO").fill("La casa tra le colline");
+  await page.getByRole("button", { name: "Avanti" }).click();
+  await page.getByRole("button", { name: "Avanti" }).click();
+
+  await page.getByRole("button", { name: "Sezione 1: Video → Testo finale" }).click();
+  await page.getByRole("region", { name: "Sezione 1" }).getByRole("button", { name: "Carica un video" }).click();
+  await expect.poll(() => page.evaluate(() => {
+    const draft = JSON.parse(localStorage.getItem("scroll-studio-configuratore-v1") ?? "null");
+    return { source: draft?.sections?.[0]?.media?.source, video: draft?.sections?.[0]?.media?.video };
+  })).toEqual({ source: "video", video: null });
+
+  const restoredFileRef = {
+    id: "restored-video-id",
+    name: "video-precedente.mp4",
+    type: "video/mp4",
+    size: 1024,
+    durationSec: 12,
+  };
+  await page.evaluate((fileRef) => {
+    const draft = JSON.parse(localStorage.getItem("scroll-studio-configuratore-v1") ?? "null");
+    draft.sections[0].media.video = fileRef;
+    localStorage.setItem("scroll-studio-configuratore-v1", JSON.stringify(draft));
+  }, restoredFileRef);
+
+  await page.reload();
+  await expect(page.getByRole("status")).toContainText("Le foto/video vanno ricaricati");
+  await advanceToSections(page);
+  await expect(page.locator(".file-name").filter({ hasText: "video-precedente.mp4" })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => {
+    const draft = JSON.parse(localStorage.getItem("scroll-studio-configuratore-v1") ?? "null");
+    return draft?.sections?.[0]?.media?.video;
+  })).toEqual(restoredFileRef);
+
+  const longVideoPath = testInfo.outputPath("video-35-secondi.mp4");
+  await execFileAsync("ffmpeg", [
+    "-y",
+    "-v", "error",
+    "-f", "lavfi",
+    "-i", "color=c=blue:s=320x240:d=35",
+    "-c:v", "libx264",
+    "-pix_fmt", "yuv420p",
+    longVideoPath,
+  ]);
+  await page.locator("#sections-0-media-video").setInputFiles(longVideoPath);
+  await expect(page.getByRole("alert").filter({ hasText: "Il video deve durare al massimo 30 secondi." })).toBeVisible();
+  await expect(page.getByText(/Cannot read properties of null/)).toHaveCount(0);
+
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  await page.locator("#sections-0-media-video").setInputFiles({
+    name: "video-non-supportato.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("file non valido"),
+  });
+  await expect(page.getByRole("alert").filter({ hasText: "Formato non supportato. Usa MP4, MOV o WebM." })).toBeVisible();
+  await expect(page.getByText(/Cannot read properties of null/)).toHaveCount(0);
+  expect(pageErrors).toEqual([]);
 });
 
 test("ripristina le clip salvate nel formato legacy stringa", async ({ page }) => {
