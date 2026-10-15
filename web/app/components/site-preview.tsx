@@ -5,6 +5,7 @@ import { deriveColors } from "@/lib/color";
 import { fontPairs, googleFontsUrl } from "@/lib/fonts";
 import { formatCost, totalCost } from "@/lib/cost";
 import type { ConfiguratorData, FileRef, Section, TextBlock } from "@/lib/schema";
+import { sectionScrollVh } from "@/lib/scroll-length";
 import type { SiteChrome, SiteLink } from "@/lib/site-import";
 import { Icon } from "./icons";
 
@@ -504,6 +505,12 @@ export default function SitePreview({
           }
 
           const isB = section.type === "B";
+          const durationSec = section.media.source === "video"
+            ? section.media.video?.durationSec
+            : section.media.durationSec;
+          const scrollStyle = typeof durationSec === "number" && Number.isFinite(durationSec) && durationSec > 0
+            ? { height: `${sectionScrollVh(durationSec)}vh` }
+            : undefined;
           const mediaProgress = isB ? ramp(p, 0, 0.75) : p;
           let media;
           if (section.media.source === "video") {
@@ -522,7 +529,7 @@ export default function SitePreview({
           }
           const textOpacity = isB ? ramp(p, 0.78, 0.92) : ramp(p, 0.08, 0.2) * (1 - ramp(p, 0.85, 0.97));
           return (
-            <section key={section.id} ref={register} id={`anteprima-sezione-${index + 1}`} className="preview-section" aria-label={`Sezione ${index + 1}`}>
+            <section key={section.id} ref={register} id={`anteprima-sezione-${index + 1}`} className="preview-section" aria-label={`Sezione ${index + 1}`} style={scrollStyle}>
               <div className="preview-sticky">
                 {media}
                 <div className="preview-shade" style={{ opacity: isB ? textOpacity : 0.6 }} />
